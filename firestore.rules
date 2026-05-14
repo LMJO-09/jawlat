@@ -9,6 +9,11 @@ service cloud.firestore {
 
     // --- Global Helpers ---
     function isSignedIn() { return request.auth != null; }
+
+    match /test/connection {
+      allow read: if isSignedIn();
+    }
+
     function isAdmin() { 
       return isSignedIn() && (
         request.auth.token.email == 'abdalrhmanmaaith24@gmail.com' ||
