@@ -1,0 +1,100 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile and metadata including roles and restrictions.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "isBlocked": { "type": "boolean" },
+        "restrictedActions": { "type": "array", "items": { "type": "string" } },
+        "hasFlame": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Round": {
+      "title": "Round",
+      "description": "A study or work round with timer and breaks.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "duration": { "type": "integer", "description": "Duration in minutes" },
+        "breakAfter": { "type": "integer", "description": "Minutes before a break" },
+        "breakDuration": { "type": "integer", "description": "Break duration in minutes" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "completed", "cancelled"] },
+        "creatorId": { "type": "string" },
+        "participants": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["name", "duration", "creatorId", "status"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "Messages sent during break periods.",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderPhoto": { "type": "string" },
+        "senderRole": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "senderId", "timestamp"]
+    },
+    "SupportTicket": {
+      "title": "Support Ticket",
+      "description": "Support request from a user to admins.",
+      "type": "object",
+      "properties": {
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderEmail": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "resolved"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["message", "senderId", "status"]
+    },
+    "SharedContent": {
+      "title": "Shared Content",
+      "description": "Content for Schedules or Expression modules.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["schedule", "expression"] },
+        "content": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "content", "creatorId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Individual user records."
+    },
+    "/rounds/{roundId}": {
+      "schema": "Round",
+      "description": "Round sessions."
+    },
+    "/rounds/{roundId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat messages within a round's break."
+    },
+    "/support/{ticketId}": {
+      "schema": "SupportTicket",
+      "description": "User support tickets."
+    },
+    "/content/{contentId}": {
+      "schema": "SharedContent",
+      "description": "Schedules and expressions."
+    }
+  }
+}
