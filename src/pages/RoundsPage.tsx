@@ -15,6 +15,7 @@ import { collection, onSnapshot, addDoc, query, orderBy, serverTimestamp } from 
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Round } from '../types';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface Props {
   onNavigate: (page: any, params?: any) => void;
@@ -38,6 +39,8 @@ export default function RoundsPage({ onNavigate }: Props) {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Round));
       setRounds(data.filter(r => r.status === 'active'));
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'rounds');
     });
     return () => unsubscribe();
   }, []);
@@ -60,7 +63,7 @@ export default function RoundsPage({ onNavigate }: Props) {
       const docRef = await addDoc(collection(db, 'rounds'), newRound);
       onNavigate('round-room', { roundId: docRef.id });
     } catch (error) {
-      console.error("Error creating round:", error);
+      handleFirestoreError(error, OperationType.CREATE, 'rounds');
     }
   };
 

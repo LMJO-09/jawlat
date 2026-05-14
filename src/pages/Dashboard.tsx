@@ -24,7 +24,7 @@ interface Props {
 
 export default function Dashboard({ onNavigate }: Props) {
   const { profile, isAdmin, user } = useAuth();
-  const { setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [showSupport, setShowSupport] = useState(false);
   const [supportMsg, setSupportMsg] = useState('');
 
@@ -158,10 +158,10 @@ export default function Dashboard({ onNavigate }: Props) {
                تخصيص المظهر
              </h3>
              <div className="grid grid-cols-2 gap-4 relative z-10">
-                <ThemeMiniOption label="فاتح" active={true} onClick={() => setTheme('light')} />
-                <ThemeMiniOption label="داكن" active={false} onClick={() => setTheme('dark')} />
-                <ThemeMiniOption label="طبيعة" active={false} onClick={() => setTheme('nature')} />
-                <ThemeMiniOption label="ملكي" active={false} onClick={() => setTheme('royal')} />
+                <ThemeMiniOption label="فاتح" active={theme === 'light'} onClick={() => setTheme('light')} />
+                <ThemeMiniOption label="داكن" active={theme === 'dark'} onClick={() => setTheme('dark')} />
+                <ThemeMiniOption label="طبيعة" active={theme === 'nature'} onClick={() => setTheme('nature')} />
+                <ThemeMiniOption label="ملكي" active={theme === 'royal'} onClick={() => setTheme('royal')} />
              </div>
              <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl"></div>
           </div>

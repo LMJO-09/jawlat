@@ -8,21 +8,39 @@
 
 @layer base {
   :root {
-    --bg-primary: #f1f5f9;
+    --bg-primary: #f8fafc;
     --text-primary: #1e293b;
+    --text-secondary: #64748b;
     --accent-primary: #6366f1;
-    --accent-secondary: #4f46e5;
     --card-bg: #ffffff;
     --card-border: #e2e8f0;
   }
 
   .dark {
-    --bg-primary: #0f172a;
+    --bg-primary: #020617;
     --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
     --accent-primary: #818cf8;
-    --accent-secondary: #6366f1;
-    --card-bg: #1e293b;
-    --card-border: #334155;
+    --card-bg: #0f172a;
+    --card-border: #1e293b;
+  }
+
+  .nature {
+    --bg-primary: #f0fdf4;
+    --text-primary: #064e3b;
+    --text-secondary: #059669;
+    --accent-primary: #10b981;
+    --card-bg: #ffffff;
+    --card-border: #d1fae5;
+  }
+
+  .royal {
+    --bg-primary: #1e1b4b;
+    --text-primary: #fef3c7;
+    --text-secondary: #d4d4d8;
+    --accent-primary: #fbbf24;
+    --card-bg: #312e81;
+    --card-border: #4338ca;
   }
 
   body {
@@ -30,11 +48,12 @@
     color: var(--text-primary);
     font-family: var(--font-arabic), var(--font-sans);
     transition: background-color 0.3s ease, color 0.3s ease;
+    min-height: 100vh;
   }
 
   .bento-card {
     background: var(--card-bg);
-    border-radius: 1.5rem;
+    border-radius: 2rem;
     border: 1px solid var(--card-border);
     padding: 1.5rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
@@ -42,19 +61,16 @@
   }
 
   .bento-card:hover {
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    transform: translateY(-2px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    transform: translateY(-4px);
   }
 
   .gold-text {
-    color: #d4af37;
-    text-shadow: 0 0 8px rgba(212, 175, 55, 0.3);
-    font-weight: bold;
+    @apply bg-gradient-to-r from-yellow-400 via-yellow-200 to-yellow-600 bg-clip-text text-transparent drop-shadow-sm font-black;
   }
 
   .flame-icon {
-    color: #ff4500;
-    filter: drop-shadow(0 0 5px rgba(255, 69, 0, 0.4));
+    @apply text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.5)] animate-pulse;
   }
 
   [dir="rtl"] {

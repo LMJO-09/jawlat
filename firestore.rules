@@ -1,101 +1,123 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Default Deny
+    
+    // 0. Default Deny
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // --- Helpers ---
+    // --- Global Helpers ---
     function isSignedIn() { return request.auth != null; }
-    function isEmailVerified() { return request.auth.token.email_verified == true; }
-    function incoming() { return request.resource.data; }
-    function existing() { return resource.data; }
-    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
-
-    function getUserData(uid) {
-      return get(/databases/$(database)/documents/users/$(uid)).data;
-    }
-
-    function isAdmin() {
+    function isAdmin() { 
       return isSignedIn() && (
         request.auth.token.email == 'abdalrhmanmaaith24@gmail.com' ||
-        getUserData(request.auth.uid).role == 'admin'
+        request.auth.token.email == 'abdalrhmanmaaith1@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin')
       );
     }
-
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    function getUser(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+    
     function isUnblocked() {
-      return isSignedIn() && getUserData(request.auth.uid).get('isBlocked', false) == false;
+      return isSignedIn() && (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) || getUser(request.auth.uid).get('isBlocked', false) == false);
     }
 
-    function isRestricted(action) {
-      return isSignedIn() && action in getUserData(request.auth.uid).get('restrictedActions', []);
-    }
+    // --- Validation Blueprints ---
 
-    // --- Validation Helpers ---
     function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'email', 'role']) &&
-             data.uid is string && data.uid.size() <= 128 &&
+      let requiredFields = ['uid', 'email', 'role', 'isBlocked', 'restrictedActions', 'hasFlame', 'createdAt'];
+      return data.keys().hasAll(requiredFields) &&
+             data.uid == request.auth.uid &&
              data.email is string && data.email.size() <= 256 &&
              data.role in ['admin', 'user'] &&
+             data.isBlocked is bool &&
+             data.restrictedActions is list &&
+             data.hasFlame is bool &&
+             (data.createdAt is timestamp || data.createdAt is string) &&
              (!data.keys().contains('displayName') || (data.displayName is string && data.displayName.size() <= 128)) &&
              (!data.keys().contains('photoURL') || (data.photoURL is string && data.photoURL.size() <= 1024));
     }
 
     function isValidRound(data) {
-      return data.keys().hasAll(['name', 'duration', 'creatorId', 'status']) &&
+      let requiredFields = ['name', 'duration', 'breakAfter', 'breakDuration', 'startTime', 'status', 'creatorId', 'participants'];
+      return data.keys().hasAll(requiredFields) &&
              data.name is string && data.name.size() <= 128 &&
              data.duration is int && data.duration > 0 &&
+             data.breakAfter is int && data.breakAfter >= 0 &&
+             data.breakDuration is int && data.breakDuration >= 0 &&
+             data.status in ['active', 'completed', 'cancelled'] &&
              data.creatorId == request.auth.uid &&
-             data.status in ['active', 'completed', 'cancelled'];
+             data.participants is list &&
+             data.participants.size() > 0 &&
+             data.participants[0] == request.auth.uid &&
+             (data.startTime == request.time || data.startTime is timestamp);
     }
 
     function isValidMessage(data) {
-      return data.keys().hasAll(['text', 'senderId', 'timestamp']) &&
-             data.text is string && data.text.size() <= 1000 &&
+      let requiredFields = ['text', 'senderId', 'senderName', 'senderRole', 'timestamp'];
+      return data.keys().hasAll(requiredFields) &&
+             data.text is string && data.text.size() <= 2000 &&
              data.senderId == request.auth.uid &&
+             data.senderName is string &&
+             data.senderRole is string &&
              data.timestamp == request.time;
     }
 
-    // --- Matches ---
+    function isValidTicket(data) {
+      let requiredFields = ['message', 'senderId', 'senderEmail', 'status', 'timestamp'];
+      return data.keys().hasAll(requiredFields) &&
+             data.message is string && data.message.size() <= 5000 &&
+             data.senderId == request.auth.uid &&
+             data.status in ['open', 'resolved'] &&
+             data.timestamp == request.time;
+    }
+
+    // --- Collection Routes ---
 
     match /users/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming()) && incoming().role == 'user';
-      allow update: if isSignedIn() && (
-        (request.auth.uid == userId &&
-         incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL']) &&
-         isValidUser(incoming())) ||
-        (isAdmin() && isValidUser(incoming()))
+      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow create: if isOwner(userId) && isValidUser(incoming()) && (incoming().role == 'user' || request.auth.token.email == 'abdalrhmanmaaith24@gmail.com' || request.auth.token.email == 'abdalrhmanmaaith1@gmail.com');
+      allow update: if isAdmin() || (isOwner(userId) && 
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'hasFlame']) && 
+        isValidUser(incoming())
       );
     }
 
     match /rounds/{roundId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isUnblocked() && !isRestricted('createRound') && isValidRound(incoming());
+      allow create: if isSignedIn() && isUnblocked() && isValidRound(incoming());
       allow update: if isSignedIn() && isUnblocked() && (
-        (existing().creatorId == request.auth.uid && isValidRound(incoming())) ||
-        (isAdmin() && isValidRound(incoming())) ||
-        (incoming().diff(existing()).affectedKeys().hasOnly(['participants'])) // Join round
+        isAdmin() ||
+        (existing().creatorId == request.auth.uid && isValidRound(incoming()) && (
+          incoming().diff(existing()).affectedKeys().hasAll(['status']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['participants', 'name', 'duration', 'breakAfter', 'breakDuration'])
+        )) ||
+        (incoming().diff(existing()).affectedKeys().hasOnly(['participants']) && incoming().participants.hasAll(existing().participants))
       );
-      
+
       match /messages/{messageId} {
         allow read: if isSignedIn();
-        allow create: if isSignedIn() && isUnblocked() && !isRestricted('chat') && isValidMessage(incoming());
+        allow create: if isSignedIn() && isUnblocked() && isValidMessage(incoming());
       }
     }
 
     match /support/{ticketId} {
-      allow read: if isSignedIn() && (incoming().senderId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && isUnblocked() && incoming().senderId == request.auth.uid;
+      allow read: if isAdmin() || (isSignedIn() && existing().senderId == request.auth.uid);
+      allow create: if isSignedIn() && isUnblocked() && isValidTicket(incoming());
       allow update: if isAdmin();
     }
 
     match /content/{contentId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isUnblocked() && incoming().creatorId == request.auth.uid;
-      allow update: if isSignedIn() && (existing().creatorId == request.auth.uid || isAdmin());
-      allow delete: if isSignedIn() && (existing().creatorId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isUnblocked();
+      allow update, delete: if isAdmin() || (isSignedIn() && existing().creatorId == request.auth.uid);
     }
   }
 }

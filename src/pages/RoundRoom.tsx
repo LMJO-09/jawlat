@@ -27,6 +27,7 @@ import {
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Round, Message } from '../types';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface Props {
   roundId: string;
@@ -55,12 +56,14 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
         if (user && !data.participants.includes(user.uid)) {
            updateDoc(doc(db, 'rounds', roundId), {
              participants: arrayUnion(user.uid)
-           });
+           }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `rounds/${roundId}`));
         }
         setLoading(false);
       } else {
         onNavigate('rounds');
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `rounds/${roundId}`);
     });
 
     // Messages Listener
@@ -70,6 +73,8 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
     );
     const unsubscribeMessages = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `rounds/${roundId}/messages`);
     });
 
     return () => {
@@ -104,10 +109,10 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
       
       if (currentCycleSeconds < workSeconds) {
         setIsBreak(false);
-        setTimeLeft(workSeconds - currentCycleSeconds);
+        setTimeLeft(Math.max(0, workSeconds - currentCycleSeconds));
       } else {
         setIsBreak(true);
-        setTimeLeft(cycleSeconds - currentCycleSeconds);
+        setTimeLeft(Math.max(0, cycleSeconds - currentCycleSeconds));
       }
     }, 1000);
 
@@ -116,7 +121,11 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
 
   const endRound = async () => {
     if (confirm('هل تريد إنهاء الجولة الآن؟')) {
-      await updateDoc(doc(db, 'rounds', roundId), { status: 'completed' });
+      try {
+        await updateDoc(doc(db, 'rounds', roundId), { status: 'completed' });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `rounds/${roundId}`);
+      }
     }
   };
 
@@ -142,7 +151,7 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
       });
       setInputText('');
     } catch (error) {
-      console.error(error);
+      handleFirestoreError(error, OperationType.CREATE, `rounds/${roundId}/messages`);
     }
   };
 

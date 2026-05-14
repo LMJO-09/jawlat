@@ -3,6 +3,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, getDocFromServer } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { UserProfile } from '../types';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface AuthContextType {
   user: User | null;
@@ -31,6 +32,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (error) {
         if (error instanceof Error && error.message.includes('the client is offline')) {
           console.error("Please check your Firebase configuration.");
+        } else {
+          try {
+            handleFirestoreError(error, OperationType.GET, 'test/connection');
+          } catch (e) {
+            // Re-throw or handle as needed
+          }
         }
       }
     };
@@ -54,16 +61,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email: firebaseUser.email || '',
               displayName: firebaseUser.displayName || 'User',
               photoURL: firebaseUser.photoURL || '',
-              role: firebaseUser.email === 'abdalrhmanmaaith24@gmail.com' ? 'admin' : 'user',
+              role: (firebaseUser.email === 'abdalrhmanmaaith24@gmail.com' || firebaseUser.email === 'abdalrhmanmaaith1@gmail.com') ? 'admin' : 'user',
               isBlocked: false,
               restrictedActions: [],
               hasFlame: false,
               createdAt: new Date(),
             };
-            await setDoc(profileRef, newProfile);
-            setProfile(newProfile);
+            try {
+              await setDoc(profileRef, newProfile);
+              setProfile(newProfile);
+            } catch (error) {
+              handleFirestoreError(error, OperationType.WRITE, `users/${firebaseUser.uid}`);
+            }
           }
           setLoading(false);
+        }, (error) => {
+          handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
         });
 
         return () => unsubscribeProfile();
