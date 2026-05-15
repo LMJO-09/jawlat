@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, getDocFromServer } from 'firebase/firestore';
+import { onAuthStateChanged, User, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { doc, getDoc, setDoc, onSnapshot, getDocFromServer, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { UserProfile } from '../types';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
@@ -24,10 +24,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Connection test
+  // Connection test & Persistence
   useEffect(() => {
-    const testConnection = async () => {
+    const init = async () => {
       try {
+        await setPersistence(auth, browserLocalPersistence);
         await getDocFromServer(doc(db, 'test', 'connection'));
       } catch (error) {
         if (error instanceof Error && error.message.includes('the client is offline')) {
@@ -41,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     };
-    testConnection();
+    init();
   }, []);
 
   useEffect(() => {
@@ -61,11 +62,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email: firebaseUser.email || '',
               displayName: firebaseUser.displayName || 'User',
               photoURL: firebaseUser.photoURL || '',
-              role: (firebaseUser.email === 'abdalrhmanmaaith24@gmail.com' || firebaseUser.email === 'abdalrhmanmaaith1@gmail.com') ? 'admin' : 'user',
+              role: (firebaseUser.email === 'abdalrhmanmaaith24@gmail.com') ? 'admin' : 'user',
               isBlocked: false,
               restrictedActions: [],
               hasFlame: false,
               createdAt: new Date(),
+              lastLogin: new Date(),
             };
             try {
               await setDoc(profileRef, newProfile);
@@ -79,6 +81,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
         });
 
+        // Update last login
+        updateDoc(profileRef, { lastLogin: serverTimestamp() }).catch(() => {});
+
         return () => unsubscribeProfile();
       } else {
         setProfile(null);
@@ -89,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribeAuth();
   }, []);
 
-  const isAdmin = profile?.role === 'admin' || user?.email === 'abdalrhmanmaaith24@gmail.com' || user?.email === 'abdalrhmanmaaith1@gmail.com';
+  const isAdmin = profile?.role === 'admin' || user?.email === 'abdalrhmanmaaith24@gmail.com';
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, isAdmin }}>

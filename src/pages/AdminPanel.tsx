@@ -13,7 +13,7 @@ import {
   ShieldCheck,
   UserCheck
 } from 'lucide-react';
-import { collection, onSnapshot, query, updateDoc, doc, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, updateDoc, doc, getDocs, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { UserProfile, SupportTicket } from '../types';
 
@@ -25,7 +25,8 @@ export default function AdminPanel({ onNavigate }: Props) {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'users' | 'support'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'support' | 'settings'>('users');
+  const [config, setConfig] = useState<any>({ communityEnabled: true, communityMessage: '' });
 
   useEffect(() => {
     // Real-time Users
@@ -38,11 +39,23 @@ export default function AdminPanel({ onNavigate }: Props) {
       setTickets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)));
     });
 
+    // Config
+    const unsubscribeConfig = onSnapshot(doc(db, 'app', 'config'), (snapshot) => {
+      if (snapshot.exists()) {
+        setConfig(snapshot.data());
+      }
+    });
+
     return () => {
       unsubscribeUsers();
       unsubscribeTickets();
+      unsubscribeConfig();
     };
   }, []);
+
+  const updateConfig = async (updates: any) => {
+    await setDoc(doc(db, 'app', 'config'), updates, { merge: true });
+  };
 
   const toggleBlock = async (user: UserProfile) => {
     await updateDoc(doc(db, 'users', user.uid), {
@@ -72,20 +85,34 @@ export default function AdminPanel({ onNavigate }: Props) {
     u.email?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const stats = {
+    total: users.length,
+    active: users.filter(u => !u.isBlocked).length,
+    today: users.filter(u => {
+      if (!u.lastLogin) return false;
+      const loginDate = u.lastLogin.toDate();
+      const today = new Date();
+      return loginDate.getDate() === today.getDate() &&
+             loginDate.getMonth() === today.getMonth() &&
+             loginDate.getFullYear() === today.getFullYear();
+    }).length,
+    admins: users.filter(u => u.role === 'admin').length,
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
+    <div className="min-h-screen bg-[var(--bg-primary)] p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
           <button 
             onClick={() => onNavigate('dashboard')}
-            className="flex items-center gap-2 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-all"
+            className="flex items-center gap-2 text-slate-500 hover:text-[var(--accent-primary)] transition-all font-bold"
           >
             <ChevronLeft className="w-5 h-5 rtl:rotate-180" />
             <span>لوحة التحكم الرئيسية</span>
           </button>
           
-          <div className="flex bg-white dark:bg-gray-800 p-1 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="flex bg-[var(--card-bg)] p-1 rounded-2xl shadow-sm border border-[var(--card-border)]">
              <button 
                onClick={() => setActiveTab('users')}
                className={`px-8 py-2 rounded-xl transition-all font-bold text-sm ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500'}`}
@@ -98,7 +125,21 @@ export default function AdminPanel({ onNavigate }: Props) {
              >
                 الدعم الفني
              </button>
+             <button 
+               onClick={() => setActiveTab('settings')}
+               className={`px-8 py-2 rounded-xl transition-all font-bold text-sm ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500'}`}
+             >
+                الإعدادات
+             </button>
           </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+           <StatCard label="إجمالي المستخدمين" value={stats.total} icon={<Users className="w-5 h-5"/>} color="bg-blue-500" />
+           <StatCard label="دخلوا اليوم" value={stats.today} icon={<UserCheck className="w-5 h-5"/>} color="bg-emerald-500" />
+           <StatCard label="مدراء النظام" value={stats.admins} icon={<ShieldCheck className="w-5 h-5"/>} color="bg-amber-500" />
+           <StatCard label="طلبات الدعم" value={tickets.filter(t => t.status === 'open').length} icon={<MessageSquare className="w-5 h-5"/>} color="bg-rose-500" />
         </div>
 
         {activeTab === 'users' ? (
@@ -111,7 +152,7 @@ export default function AdminPanel({ onNavigate }: Props) {
                     placeholder="ابحث عن مستخدم بالإسم أو الإيميل..."
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white dark:bg-gray-800 border-none shadow-sm dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-12 pr-4 py-4 rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] shadow-sm text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
                   />
                </div>
             </div>
@@ -124,12 +165,17 @@ export default function AdminPanel({ onNavigate }: Props) {
                    className={`bento-card transition-all ${user.isBlocked ? 'border-red-200 dark:border-red-900/50 grayscale opacity-60' : ''}`}
                  >
                     <div className="flex items-center gap-4 mb-6">
-                       <div className="w-14 h-14 bg-gray-100 dark:bg-gray-900 rounded-2xl overflow-hidden">
+                       <div className="w-14 h-14 bg-[var(--bg-primary)] rounded-2xl overflow-hidden">
                           <img src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}`} alt="" className="w-full h-full object-cover" />
                        </div>
                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold dark:text-white truncate">{user.displayName}</h3>
+                          <h3 className="font-bold text-[var(--text-primary)] truncate">{user.displayName}</h3>
                           <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                          {user.lastLogin && (
+                            <p className="text-[10px] text-indigo-500 font-bold mt-1">
+                               آخر دخول: {user.lastLogin?.toDate?.()?.toLocaleString('ar-EG') || 'الآن'}
+                            </p>
+                          )}
                        </div>
                        <div className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${user.role === 'admin' ? 'bg-yellow-500/10 text-yellow-600' : 'bg-blue-500/10 text-blue-600'}`}>
                           {user.role}
@@ -141,7 +187,7 @@ export default function AdminPanel({ onNavigate }: Props) {
                           <span className="text-gray-500 font-bold">الحالة العامّة</span>
                           <button 
                             onClick={() => toggleBlock(user)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${user.isBlocked ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-900 text-red-500 hover:bg-red-50'}`}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${user.isBlocked ? 'bg-red-600 text-white' : 'bg-[var(--card-bg)] border border-[var(--card-border)] text-red-500 hover:bg-red-50'}`}
                           >
                              {user.isBlocked ? <ShieldAlert className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
                              {user.isBlocked ? 'رفع الحظر' : 'حظر الحساب'}
@@ -175,17 +221,17 @@ export default function AdminPanel({ onNavigate }: Props) {
                ))}
             </div>
           </>
-        ) : (
+        ) : activeTab === 'support' ? (
           <div className="max-w-4xl mx-auto space-y-4">
              {tickets.map(ticket => (
-               <div key={ticket.id} className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
+               <div key={ticket.id} className="bg-[var(--card-bg)] p-6 rounded-3xl border border-[var(--card-border)] shadow-sm">
                   <div className="flex justify-between items-start mb-4">
                      <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
                            <MessageSquare className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
-                           <h4 className="font-bold dark:text-white">طلب دعم من {ticket.senderEmail}</h4>
+                           <h4 className="font-bold text-[var(--text-primary)]">طلب دعم من {ticket.senderEmail}</h4>
                            <p className="text-xs text-gray-400">{ticket.timestamp?.toDate()?.toLocaleString('ar-EG')}</p>
                         </div>
                      </div>
@@ -207,6 +253,38 @@ export default function AdminPanel({ onNavigate }: Props) {
                <div className="text-center p-20 text-gray-400 italic">لا توجد طلبات دعم حالياً.</div>
              )}
           </div>
+        ) : (
+          <div className="max-w-xl mx-auto">
+             <div className="bento-card">
+                <h3 className="text-xl font-bold text-[var(--text-primary)] mb-6">إعدادات النظام</h3>
+                
+                <div className="space-y-8">
+                   <div>
+                      <div className="flex items-center justify-between mb-4">
+                         <div className="font-bold text-[var(--text-primary)]">حالة مجتمع الجولات</div>
+                         <button 
+                           onClick={() => updateConfig({ communityEnabled: !config.communityEnabled })}
+                           className={`w-14 h-8 rounded-full transition-all relative ${config.communityEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-800'}`}
+                         >
+                            <div className={`absolute top-1 w-6 h-6 rounded-full bg-white transition-all ${config.communityEnabled ? 'right-7' : 'left-1'}`} />
+                         </button>
+                      </div>
+                      <p className="text-sm text-[var(--text-secondary)] mb-4">تفعيل أو تعطيل قسم المجتمع لجميع المستخدمين.</p>
+                      
+                      <div className="space-y-4 mt-6">
+                         <label className="text-sm font-bold text-[var(--text-primary)]">رسالة التعطيل (تظهر عند إغلاق المجتمع):</label>
+                         <textarea 
+                           value={config.communityMessage}
+                           onChange={e => updateConfig({ communityMessage: e.target.value })}
+                           placeholder="مثال: المجتمع مغلق للصيانة حالياً..."
+                           className="w-full bg-[var(--bg-primary)] border-none rounded-xl p-4 text-sm text-[var(--text-primary)] min-h-[100px]"
+                         />
+                         <p className="text-[10px] text-amber-600 font-bold">هذه الرسالة تظهر لغير المدراء عند تعطيل القسم من الأعلى.</p>
+                      </div>
+                   </div>
+                </div>
+             </div>
+          </div>
         )}
       </div>
     </div>
@@ -221,5 +299,17 @@ function RestrictionBadge({ label, active, onToggle }: any) {
     >
        {active ? `ممنوع من ${label}` : `مسموح له ${label}`}
     </button>
+  );
+}
+
+function StatCard({ label, value, icon, color }: any) {
+  return (
+    <div className="bento-card p-6 flex flex-col items-center text-center justify-center border-slate-100 dark:border-slate-800">
+       <div className={`w-10 h-10 ${color} text-white rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-black/5`}>
+          {icon}
+       </div>
+       <div className="text-2xl font-black text-[var(--text-primary)] mb-1">{value}</div>
+       <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-tight">{label}</div>
+    </div>
   );
 }

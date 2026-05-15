@@ -10,6 +10,7 @@ export interface UserProfile {
   restrictedActions: string[];
   hasFlame?: boolean;
   createdAt: any;
+  lastLogin?: any;
 }
 
 export interface Round {
@@ -46,9 +47,36 @@ export interface SupportTicket {
 
 export interface SharedContent {
   id: string;
-  type: 'schedule' | 'expression';
+  type: 'schedule' | 'expression' | 'community';
+  content: string;
+  images?: string[];
+  videos?: string[];
+  pdfs?: string[];
+  creatorId: string;
+  creatorName: string;
+  creatorPhoto?: string;
+  timestamp: any;
+  likes?: string[]; // IDs of users who liked
+  expiresAt?: any; // For controlled duration
+  commentCount?: number;
+}
+
+export interface Comment {
+  id: string;
+  postId: string;
   content: string;
   creatorId: string;
   creatorName: string;
+  creatorPhoto?: string;
+  timestamp: any;
+  replies?: Reply[];
+}
+
+export interface Reply {
+  id: string;
+  content: string;
+  creatorId: string;
+  creatorName: string;
+  creatorPhoto?: string;
   timestamp: any;
 }

@@ -64,15 +64,36 @@
     },
     "SharedContent": {
       "title": "Shared Content",
-      "description": "Content for Schedules or Expression modules.",
+      "description": "Content for Schedules, Expressions, or Community modules.",
       "type": "object",
       "properties": {
-        "type": { "type": "string", "enum": ["schedule", "expression"] },
+        "type": { "type": "string", "enum": ["schedule", "expression", "community"] },
         "content": { "type": "string" },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "videos": { "type": "array", "items": { "type": "string" } },
+        "pdfs": { "type": "array", "items": { "type": "string" } },
+        "likes": { "type": "array", "items": { "type": "string" } },
         "creatorId": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" }
+        "creatorName": { "type": "string" },
+        "creatorPhoto": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "commentCount": { "type": "integer" }
       },
       "required": ["type", "content", "creatorId"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A comment on a SharedContent post.",
+      "type": "object",
+      "properties": {
+        "content": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "creatorName": { "type": "string" },
+        "creatorPhoto": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "replies": { "type": "array", "items": { "$ref": "Reply" } }
+      }
     }
   },
   "firestore": {
@@ -94,7 +115,11 @@
     },
     "/content/{contentId}": {
       "schema": "SharedContent",
-      "description": "Schedules and expressions."
+      "description": "Schedules, expressions, and community posts."
+    },
+    "/content/{contentId}/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Comments on community posts."
     }
   }
 }

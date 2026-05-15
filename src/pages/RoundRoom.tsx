@@ -31,7 +31,7 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface Props {
   roundId: string;
-  onNavigate: (page: any) => void;
+  onNavigate: (page: any, params?: any) => void;
 }
 
 export default function RoundRoom({ roundId, onNavigate }: Props) {
@@ -100,6 +100,12 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
         if (user && round.creatorId === user.uid) {
            updateDoc(doc(db, 'rounds', roundId), { status: 'completed' });
         }
+        
+        // Show success alert and navigate
+        if (!isBreak) { // Only if they were in a work session
+           alert('رائع! لقد انتهت الجولة بنجاح. سيتم توجيهك إلى سجل الإنجازات.');
+           onNavigate('rounds', { tab: 'completed' });
+        }
         return;
       }
 
@@ -163,19 +169,19 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
 
   if (loading || !round) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      <div className="flex h-screen items-center justify-center bg-[var(--bg-primary)]">
+        <div className="animate-spin rounded-full h-8 w-8 border-4 border-[var(--accent-primary)] border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col md:flex-row">
       {/* Left: Timer Panel */}
-      <div className="w-full md:w-1/3 p-8 flex flex-col bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-10">
+      <div className="w-full md:w-1/3 p-8 flex flex-col bg-[var(--card-bg)] border-l border-[var(--card-border)] shadow-2xl z-10">
         <button 
           onClick={() => onNavigate('rounds')}
-          className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 mb-10 transition-all font-bold text-sm"
+          className="flex items-center gap-2 text-slate-500 hover:text-[var(--accent-primary)] mb-10 transition-all font-bold text-sm"
         >
           <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
           <span>مغادرة الجولة</span>
@@ -183,9 +189,9 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
 
         <div className="flex-1 flex flex-col items-center justify-center text-center">
           <div className="mb-10">
-             <div className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest mb-2">جولة نشطة الآن</div>
-            <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-2">{round.name}</h1>
-            <p className="text-slate-400 text-sm italic">{round.duration} دقيقة من التركيز العميق</p>
+             <div className="text-[10px] text-[var(--accent-primary)] font-bold uppercase tracking-widest mb-2">جولة نشطة الآن</div>
+            <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">{round.name}</h1>
+            <p className="text-[var(--text-secondary)] text-sm italic">{round.duration} دقيقة من التركيز العميق</p>
           </div>
 
           <div className="relative mb-12">
@@ -211,12 +217,12 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
           </div>
 
           <div className="grid grid-cols-2 gap-4 w-full">
-            <div className="bento-card bg-slate-50 dark:bg-slate-800/50 p-4 border-slate-100 dark:border-slate-800">
-              <div className="text-2xl font-bold text-slate-800 dark:text-white">{round.participants.length}</div>
+            <div className="bento-card bg-[var(--bg-primary)] p-4 border-[var(--card-border)]">
+              <div className="text-2xl font-bold text-[var(--text-primary)]">{round.participants.length}</div>
               <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">المشاركين</div>
             </div>
-            <div className="bento-card bg-slate-50 dark:bg-slate-800/50 p-4 border-slate-100 dark:border-slate-800">
-              <div className="text-2xl font-bold text-slate-800 dark:text-white">{round.breakAfter}د</div>
+            <div className="bento-card bg-[var(--bg-primary)] p-4 border-[var(--card-border)]">
+              <div className="text-2xl font-bold text-[var(--text-primary)]">{round.breakAfter}د</div>
               <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">فاصل العمل</div>
             </div>
           </div>
@@ -239,7 +245,7 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
              <motion.div
                initial={{ scale: 0.9, opacity: 0 }}
                animate={{ scale: 1, opacity: 1 }}
-               className="bg-white dark:bg-gray-800 p-8 rounded-[2.5rem] shadow-2xl text-gray-900 dark:text-white max-w-sm"
+               className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] shadow-2xl text-[var(--text-primary)] max-w-sm"
              >
                 <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
                    <MessageSquare className="w-8 h-8 text-blue-600" />
@@ -255,13 +261,13 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
         )}
 
         {/* Chat Header */}
-        <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
+        <div className="p-6 border-b border-[var(--card-border)] flex items-center justify-between bg-[var(--card-bg)]/80 backdrop-blur-md">
            <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
                  <MessageSquare className="w-5 h-5" />
               </div>
               <div>
-                 <h2 className="font-bold text-slate-800 dark:text-white leading-none">دردشة الاستراحة</h2>
+                 <h2 className="font-bold text-[var(--text-primary)] leading-none">دردشة الاستراحة</h2>
                  <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest mt-1">نشط حالياً</p>
               </div>
            </div>
@@ -305,7 +311,7 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
                  </div>
                  <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm border ${
                    isMe ? 'bg-indigo-600 border-indigo-500 text-white rounded-tr-none' : 
-                   'bg-white dark:bg-slate-800 dark:text-white rounded-tl-none border-slate-100 dark:border-slate-700'
+                   'bg-[var(--card-bg)] text-[var(--text-primary)] rounded-tl-none border-[var(--card-border)]'
                  }`}>
                     {msg.text}
                  </div>
@@ -316,7 +322,7 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
         </div>
 
         {/* Input */}
-        <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md">
+        <div className="p-6 border-t border-[var(--card-border)] bg-[var(--card-bg)]/50 backdrop-blur-md">
            <form onSubmit={sendMessage} className="flex gap-4">
               <input 
                 type="text" 
@@ -324,7 +330,7 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
                 onChange={e => setInputText(e.target.value)}
                 disabled={!isBreak}
                 placeholder={isBreak ? "اكتب رسالة هنا..." : "الدردشة مغلقة للتركيز..."}
-                className="flex-1 bg-slate-100 dark:bg-slate-800 border-none rounded-2xl px-6 py-4 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50 text-sm font-bold"
+                className="flex-1 bg-[var(--bg-primary)] border-none rounded-2xl px-6 py-4 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-primary)] outline-none disabled:opacity-50 text-sm font-bold"
               />
               <button 
                 type="submit"

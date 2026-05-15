@@ -111,13 +111,13 @@ export default function SchedulesPage({ onNavigate }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8">
+    <div className="min-h-screen bg-[var(--bg-primary)] p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <button 
             onClick={() => onNavigate('dashboard')}
-            className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all font-bold"
+            className="flex items-center gap-2 text-slate-500 hover:text-[var(--accent-primary)] transition-all font-bold"
           >
             <ChevronLeft className="w-5 h-5 rtl:rotate-180" />
             <span>العودة للوحة التحكم</span>
@@ -126,7 +126,7 @@ export default function SchedulesPage({ onNavigate }: Props) {
           <div className="flex gap-2">
              <button 
                onClick={exportAsImage}
-               className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 rounded-xl font-bold hover:bg-slate-50 transition-all border border-slate-200 dark:border-slate-800 text-sm"
+               className="flex items-center gap-2 px-4 py-2 bg-[var(--card-bg)] text-slate-600 dark:text-slate-300 rounded-xl font-bold hover:bg-slate-50 transition-all border border-[var(--card-border)] text-sm"
              >
                <FileImage className="w-4 h-4" />
                حفظ كصورة
@@ -142,13 +142,13 @@ export default function SchedulesPage({ onNavigate }: Props) {
         </div>
 
         <div className="mb-10">
-          <h1 className="text-4xl font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-3">
+          <h1 className="text-4xl font-bold text-[var(--text-primary)] mb-2 flex items-center gap-3">
             <div className="w-12 h-12 bg-green-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-green-500/20">
                <Calendar className="w-7 h-7" />
             </div>
             جداول المهام اليومية
           </h1>
-          <p className="text-slate-500 dark:text-slate-400">خطط ليومك وبادر بإنجاز مهامك في جولات التركيز</p>
+          <p className="text-[var(--text-secondary)]">خطط ليومك وبادر بإنجاز مهامك في جولات التركيز</p>
         </div>
 
         {/* Create Task */}
@@ -158,7 +158,7 @@ export default function SchedulesPage({ onNavigate }: Props) {
              value={inputText}
              onChange={e => setInputText(e.target.value)}
              placeholder="ما هي مهمتك القادمة؟"
-             className="flex-1 px-6 py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-green-500 outline-none text-lg dark:text-white shadow-sm font-bold"
+             className="flex-1 px-6 py-4 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl focus:ring-2 focus:ring-green-500 outline-none text-lg text-[var(--text-primary)] shadow-sm font-bold"
            />
            <button 
              type="submit"
@@ -202,7 +202,7 @@ export default function SchedulesPage({ onNavigate }: Props) {
                                 type="text"
                                 value={editText}
                                 onChange={e => setEditText(e.target.value)}
-                                className="flex-1 bg-slate-50 dark:bg-slate-800 border-none rounded-lg px-3 py-1 outline-none dark:text-white font-bold"
+                                className="flex-1 bg-[var(--bg-primary)] border-none rounded-lg px-3 py-1 outline-none text-[var(--text-primary)] font-bold"
                                 autoFocus
                                 onKeyDown={e => e.key === 'Enter' && handleEdit()}
                               />

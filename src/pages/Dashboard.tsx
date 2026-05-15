@@ -10,7 +10,8 @@ import {
   Palette,
   Settings,
   Plus,
-  Flame
+  Flame,
+  Globe
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
@@ -48,22 +49,22 @@ export default function Dashboard({ onNavigate }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8">
+    <div className="min-h-screen bg-[var(--bg-primary)] p-4 md:p-8">
       {/* Header */}
       <header className="max-w-7xl mx-auto h-20 flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4 px-2">
         <div className="flex flex-col">
-          <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-1">
+          <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-1">
             نظام الجولات
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">
+          <p className="text-[var(--text-secondary)] text-sm">
             مرحباً بك، <span className={isAdmin ? 'gold-text' : ''}>{profile?.displayName || 'المستخدم'}</span>
             {isAdmin && <span className="mr-2 text-yellow-500 text-xs align-middle inline-flex bg-yellow-500/10 px-2 py-0.5 rounded-full ring-1 ring-yellow-500/20">مدير</span>}
           </p>
         </div>
         
-        <div className="flex items-center gap-4 bg-white dark:bg-slate-900 p-2 pr-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center gap-4 bg-[var(--card-bg)] p-2 pr-6 rounded-2xl border border-[var(--card-border)] shadow-sm">
           <div className="text-right">
-            <p className={`${isAdmin ? 'gold-text' : 'text-slate-800 dark:text-slate-200'} text-sm leading-none`}>
+            <p className={`${isAdmin ? 'gold-text' : 'text-[var(--text-primary)]'} text-sm leading-none`}>
               {profile?.displayName}
             </p>
             <p className="text-[10px] text-slate-400 mt-1 italic">{profile?.email}</p>
@@ -127,12 +128,25 @@ export default function Dashboard({ onNavigate }: Props) {
         {/* Action Widgets */}
         <div className="md:col-span-4 flex flex-col gap-6">
           <button 
+            onClick={() => onNavigate('community')}
+            className="bento-card group text-right flex items-center justify-between hover:border-emerald-400"
+          >
+            <div>
+              <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider block mb-1">تفاعل اجتماعي</span>
+              <span className="text-xl font-bold text-[var(--text-primary)]">مجتمع الجولات</span>
+            </div>
+            <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-all">
+              <Globe className="w-6 h-6" />
+            </div>
+          </button>
+
+          <button 
             onClick={() => onNavigate('schedules')}
             className="bento-card group text-right flex items-center justify-between hover:border-indigo-400"
           >
             <div>
               <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider block mb-1">تنظيم الوقت</span>
-              <span className="text-xl font-bold text-slate-800 dark:text-white">جداول المهام</span>
+              <span className="text-xl font-bold text-[var(--text-primary)]">جداول المهام</span>
             </div>
             <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-all">
               <Calendar className="w-6 h-6" />
@@ -141,19 +155,19 @@ export default function Dashboard({ onNavigate }: Props) {
 
           <button 
             onClick={() => onNavigate('expressions')}
-            className="bento-card group text-right flex items-center justify-between hover:border-purple-400 bg-purple-50/30 dark:bg-purple-900/10 border-purple-100 dark:border-purple-900/30"
+            className="bento-card group text-right flex items-center justify-between hover:border-purple-400"
           >
             <div>
               <span className="text-[10px] text-purple-600 font-bold uppercase tracking-wider block mb-1">مساحة حرة</span>
-              <span className="text-xl font-bold text-slate-800 dark:text-white">التعبير الذاتي</span>
+              <span className="text-xl font-bold text-[var(--text-primary)]">التعبير الذاتي</span>
             </div>
             <div className="w-12 h-12 bg-purple-50 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center text-purple-600 group-hover:scale-110 transition-all">
               <Edit3 className="w-6 h-6" />
             </div>
           </button>
 
-          <div className="bento-card flex-1 bg-slate-900 text-white border-none p-6 relative overflow-hidden">
-             <h3 className="font-bold mb-4 flex items-center gap-2">
+          <div className="bento-card flex-1 bg-[var(--card-bg)] border-[var(--card-border)] p-6 relative overflow-hidden">
+             <h3 className="font-bold mb-4 flex items-center gap-2 text-[var(--text-primary)]">
                <Palette className="w-5 h-5 text-indigo-400" />
                تخصيص المظهر
              </h3>
@@ -177,7 +191,7 @@ export default function Dashboard({ onNavigate }: Props) {
              </div>
              <div>
                 <p className="text-emerald-700 dark:text-emerald-400 font-bold">هل تواجه أي مشكلة؟</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">فريق الدعم الفني متواجد لمساعدتك في أي لحظة.</p>
+                <p className="text-sm text-[var(--text-secondary)]">فريق الدعم الفني متواجد لمساعدتك في أي لحظة.</p>
              </div>
           </div>
           <button 
@@ -195,14 +209,14 @@ export default function Dashboard({ onNavigate }: Props) {
            <motion.div 
              initial={{ opacity: 0, scale: 0.9 }}
              animate={{ opacity: 1, scale: 1 }}
-             className="bg-white dark:bg-gray-800 w-full max-w-lg rounded-3xl shadow-2xl p-8"
+             className="bg-[var(--card-bg)] border border-[var(--card-border)] w-full max-w-lg rounded-3xl shadow-2xl p-8"
            >
-              <h3 className="text-2xl font-bold mb-4 dark:text-white">تواصل مع الدعم الفني</h3>
+              <h3 className="text-2xl font-bold mb-4 text-[var(--text-primary)]">تواصل مع الدعم الفني</h3>
               <textarea 
                 value={supportMsg}
                 onChange={e => setSupportMsg(e.target.value)}
                 placeholder="اشرح مشكلتك أو اقتراحك هنا..."
-                className="w-full h-40 p-4 bg-gray-50 dark:bg-gray-900 rounded-2xl mb-6 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                className="w-full h-40 p-4 bg-[var(--bg-primary)] rounded-2xl mb-6 outline-none focus:ring-2 focus:ring-indigo-500 text-[var(--text-primary)]"
               />
               <div className="flex gap-4">
                  <button 
@@ -213,7 +227,7 @@ export default function Dashboard({ onNavigate }: Props) {
                  </button>
                  <button 
                    onClick={() => setShowSupport(false)}
-                   className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-bold"
+                   className="px-6 py-3 bg-[var(--bg-primary)] text-[var(--text-secondary)] rounded-xl font-bold"
                  >
                    إلغاء
                  </button>
@@ -231,13 +245,13 @@ function NavCard({ title, description, icon, color, onClick }: any) {
       whileHover={{ y: -8 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="bg-white dark:bg-gray-800 p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-2xl hover:border-transparent transition-all group text-right w-full flex flex-col items-start"
+      className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--card-border)] shadow-sm hover:shadow-2xl hover:border-transparent transition-all group text-right w-full flex flex-col items-start"
     >
-      <div className="mb-8 p-4 bg-gray-50 dark:bg-gray-900 rounded-2xl group-hover:scale-110 transition-transform">
+      <div className="mb-8 p-4 bg-[var(--bg-primary)] rounded-2xl group-hover:scale-110 transition-transform">
         {icon}
       </div>
-      <h3 className="text-2xl font-bold dark:text-white mb-2">{title}</h3>
-      <p className="text-gray-500 dark:text-gray-400 mb-6">{description}</p>
+      <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-2">{title}</h3>
+      <p className="text-[var(--text-secondary)] mb-6">{description}</p>
       <div className={`mt-auto px-6 py-2 rounded-full ${color} text-white text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity`}>
         فتح القسم
       </div>

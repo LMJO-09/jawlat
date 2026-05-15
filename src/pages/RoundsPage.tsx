@@ -19,13 +19,15 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface Props {
   onNavigate: (page: any, params?: any) => void;
+  initialTab?: 'active' | 'completed';
 }
 
-export default function RoundsPage({ onNavigate }: Props) {
+export default function RoundsPage({ onNavigate, initialTab = 'active' }: Props) {
   const { user } = useAuth();
   const [rounds, setRounds] = useState<Round[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'active' | 'completed'>(initialTab);
 
   // Form State
   const [name, setName] = useState('');
@@ -37,13 +39,15 @@ export default function RoundsPage({ onNavigate }: Props) {
     const q = query(collection(db, 'rounds'), orderBy('startTime', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Round));
-      setRounds(data.filter(r => r.status === 'active'));
+      setRounds(data);
       setLoading(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'rounds');
     });
     return () => unsubscribe();
   }, []);
+
+  const filteredRounds = rounds.filter(r => r.status === activeTab);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,13 +72,13 @@ export default function RoundsPage({ onNavigate }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8">
+    <div className="min-h-screen bg-[var(--bg-primary)] p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-12">
           <button 
             onClick={() => onNavigate('dashboard')}
-            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all shadow-sm font-bold text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--card-bg)] rounded-xl border border-[var(--card-border)] text-slate-500 hover:text-[var(--accent-primary)] transition-all shadow-sm font-bold text-sm"
           >
             <ChevronLeft className="w-4 h-4" />
             <span>الرئيسية</span>
@@ -89,21 +93,40 @@ export default function RoundsPage({ onNavigate }: Props) {
           </button>
         </div>
 
+        <div className="flex bg-[var(--card-bg)] p-1 rounded-2xl shadow-sm border border-[var(--card-border)] w-fit mb-8">
+           <button 
+             onClick={() => setActiveTab('active')}
+             className={`px-8 py-2 rounded-xl transition-all font-bold text-sm ${activeTab === 'active' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-[var(--accent-primary)]'}`}
+           >
+              جولات نشطة
+           </button>
+           <button 
+             onClick={() => setActiveTab('completed')}
+             className={`px-8 py-2 rounded-xl transition-all font-bold text-sm ${activeTab === 'completed' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-[var(--accent-primary)]'}`}
+           >
+              جولات مكتملة
+           </button>
+        </div>
+
         <div className="grid md:grid-cols-4 gap-8">
           {/* Main Content */}
           <div className="md:col-span-3">
              <div className="mb-10">
-                <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-2">الجولات النشطة</h1>
-                <p className="text-slate-500 text-sm">تصفح الجولات المتاحة حالياً وانضم إلى زملائك</p>
+                <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">
+                  {activeTab === 'active' ? 'الجولات الحالية' : 'أرشيف الإنجازات'}
+                </h1>
+                <p className="text-[var(--text-secondary)] text-sm">
+                  {activeTab === 'active' ? 'تصفح الجولات المتاحة حالياً وانضم إلى زملائك' : 'الجولات التي تم الانتهاء منها مؤخراً'}
+                </p>
              </div>
 
              {loading ? (
                <div className="flex justify-center p-12">
                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
                </div>
-             ) : rounds.length > 0 ? (
+             ) : filteredRounds.length > 0 ? (
                <div className="grid sm:grid-cols-2 gap-6">
-                 {rounds.map(round => (
+                 {filteredRounds.map(round => (
                    <motion.div
                      key={round.id}
                      whileHover={{ scale: 1.02 }}
@@ -118,7 +141,7 @@ export default function RoundsPage({ onNavigate }: Props) {
                            {round.participants?.length || 1}
                         </div>
                      </div>
-                     <h3 className="text-xl font-bold dark:text-white mb-2">{round.name}</h3>
+                     <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">{round.name}</h3>
                      <div className="flex gap-4 mb-6">
                         <div className="flex items-center gap-2 text-sm text-gray-500">
                            <Coffee className="w-4 h-4" />
@@ -140,18 +163,24 @@ export default function RoundsPage({ onNavigate }: Props) {
                  ))}
                </div>
              ) : (
-               <div className="bg-white dark:bg-gray-800 p-12 rounded-[2.5rem] text-center border border-dashed border-gray-200 dark:border-gray-700">
-                   <div className="w-20 h-20 bg-gray-50 dark:bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Search className="w-10 h-10 text-gray-300" />
+               <div className="bg-[var(--card-bg)] p-12 rounded-[2.5rem] text-center border border-dashed border-[var(--card-border)]">
+                   <div className="w-20 h-20 bg-[var(--bg-primary)] rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Search className="w-10 h-10 text-slate-300" />
                    </div>
-                   <h3 className="text-xl font-bold dark:text-white mb-2">لا يوجد جولات نشطة حالياً</h3>
-                   <p className="text-gray-500 mb-6">كُن أول من يبدأ جولة الآن!</p>
-                   <button 
-                     onClick={() => setShowCreate(true)}
-                     className="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg"
-                   >
-                     إنشاء جولة
-                   </button>
+                   <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">
+                       {activeTab === 'active' ? 'لا يوجد جولات نشطة حالياً' : 'لا يوجد سجل جولات حالياً'}
+                   </h3>
+                   <p className="text-slate-500 mb-6">
+                       {activeTab === 'active' ? 'كُن أول من يبدأ جولة الآن!' : 'ابدأ جولتك الأولى لتدخل السجل'}
+                   </p>
+                   {activeTab === 'active' && (
+                     <button 
+                       onClick={() => setShowCreate(true)}
+                       className="px-8 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg"
+                     >
+                       إنشاء جولة
+                     </button>
+                   )}
                </div>
              )}
           </div>
@@ -165,7 +194,7 @@ export default function RoundsPage({ onNavigate }: Props) {
                 className="bg-white dark:bg-gray-800 w-full max-w-lg rounded-[2.5rem] shadow-2xl p-8 border border-gray-100 dark:border-gray-700"
               >
                 <div className="flex justify-between items-center mb-8">
-                  <h2 className="text-2xl font-bold dark:text-white">إعداد جولة جديدة</h2>
+                  <h2 className="text-2xl font-bold text-[var(--text-primary)]">إعداد جولة جديدة</h2>
                   <button onClick={() => setShowCreate(false)} className="p-2 text-gray-400 hover:text-gray-900">&times;</button>
                 </div>
 
@@ -178,7 +207,7 @@ export default function RoundsPage({ onNavigate }: Props) {
                       value={name}
                       onChange={e => setName(e.target.value)}
                       placeholder="مثال: جلسة برمجة مسائية"
-                      className="w-full bg-transparent border-none focus:ring-0 font-bold dark:text-white text-lg p-0"
+                      className="w-full bg-transparent border-none focus:ring-0 font-bold text-[var(--text-primary)] text-lg p-0"
                     />
                   </div>
 
@@ -190,31 +219,31 @@ export default function RoundsPage({ onNavigate }: Props) {
                         required
                         value={duration}
                         onChange={e => setDuration(Number(e.target.value))}
-                        className="w-full bg-transparent border-none text-center focus:ring-0 font-bold dark:text-white text-2xl p-0"
+                        className="w-full bg-transparent border-none text-center focus:ring-0 font-bold text-[var(--text-primary)] text-2xl p-0"
                       />
                       <span className="text-[10px] text-slate-400 font-bold block mt-1">دقيقة</span>
                     </div>
-                    <div className="bento-card bg-slate-50 border-slate-100 p-4 text-center">
+                    <div className="bento-card bg-[var(--bg-primary)] border-[var(--card-border)] p-4 text-center">
                       <label className="block text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest">البريك كل</label>
                       <input 
                         type="number" 
                         required
                         value={breakAfter}
                         onChange={e => setBreakAfter(Number(e.target.value))}
-                        className="w-full bg-transparent border-none text-center focus:ring-0 font-bold dark:text-white text-2xl p-0"
+                        className="w-full bg-transparent border-none text-center focus:ring-0 font-bold text-[var(--text-primary)] text-2xl p-0"
                       />
                       <span className="text-[10px] text-slate-400 font-bold block mt-1">دقيقة</span>
                     </div>
                   </div>
 
-                  <div className="bento-card bg-slate-50 border-slate-100 p-4 text-center">
+                  <div className="bento-card bg-[var(--bg-primary)] border-[var(--card-border)] p-4 text-center">
                     <label className="block text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest">مدة البريك</label>
                     <input 
                       type="number" 
                       required
                       value={breakDuration}
                       onChange={e => setBreakDuration(Number(e.target.value))}
-                      className="w-full bg-transparent border-none text-center focus:ring-0 font-bold dark:text-white text-2xl p-0"
+                      className="w-full bg-transparent border-none text-center focus:ring-0 font-bold text-[var(--text-primary)] text-2xl p-0"
                     />
                     <span className="text-[10px] text-slate-400 font-bold block mt-1">دقيقة</span>
                   </div>

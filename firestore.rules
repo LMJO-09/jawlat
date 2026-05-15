@@ -17,7 +17,6 @@ service cloud.firestore {
     function isAdmin() { 
       return isSignedIn() && (
         request.auth.token.email == 'abdalrhmanmaaith24@gmail.com' ||
-        request.auth.token.email == 'abdalrhmanmaaith1@gmail.com' ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin')
       );
     }
@@ -84,11 +83,34 @@ service cloud.firestore {
              data.timestamp == request.time;
     }
 
+    function isValidContent(data) {
+      let requiredFields = ['type', 'content', 'creatorId', 'timestamp'];
+      return data.keys().hasAll(requiredFields) &&
+             data.type in ['schedule', 'expression', 'community'] &&
+             data.content is string && data.content.size() <= 100000 &&
+             data.creatorId == request.auth.uid &&
+             (data.timestamp == request.time || data.timestamp is timestamp);
+    }
+
+    function isValidComment(data) {
+      let requiredFields = ['content', 'creatorId', 'creatorName', 'timestamp', 'replies'];
+      return data.keys().hasAll(requiredFields) &&
+             data.content is string && data.content.size() <= 5000 &&
+             data.creatorId == request.auth.uid &&
+             data.replies is list &&
+             (data.timestamp == request.time || data.timestamp is timestamp);
+    }
+
     // --- Collection Routes ---
+
+    match /app/config {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
 
     match /users/{userId} {
       allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow create: if isOwner(userId) && isValidUser(incoming()) && (incoming().role == 'user' || request.auth.token.email == 'abdalrhmanmaaith24@gmail.com' || request.auth.token.email == 'abdalrhmanmaaith1@gmail.com');
+      allow create: if isOwner(userId) && isValidUser(incoming()) && (incoming().role == 'user' || request.auth.token.email == 'abdalrhmanmaaith24@gmail.com');
       allow update: if isAdmin() || (isOwner(userId) && 
         incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'hasFlame']) && 
         isValidUser(incoming())
@@ -101,10 +123,9 @@ service cloud.firestore {
       allow update: if isSignedIn() && isUnblocked() && (
         isAdmin() ||
         (existing().creatorId == request.auth.uid && isValidRound(incoming()) && (
-          incoming().diff(existing()).affectedKeys().hasAll(['status']) ||
-          incoming().diff(existing()).affectedKeys().hasOnly(['participants', 'name', 'duration', 'breakAfter', 'breakDuration'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'participants', 'name', 'duration', 'breakAfter', 'breakDuration'])
         )) ||
-        (incoming().diff(existing()).affectedKeys().hasOnly(['participants']) && incoming().participants.hasAll(existing().participants))
+        (incoming().diff(existing()).affectedKeys().hasOnly(['participants']) && incoming().participants.size() >= existing().participants.size())
       );
 
       match /messages/{messageId} {
@@ -121,8 +142,21 @@ service cloud.firestore {
 
     match /content/{contentId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isUnblocked();
-      allow update, delete: if isAdmin() || (isSignedIn() && existing().creatorId == request.auth.uid);
+      allow create: if isSignedIn() && isUnblocked() && isValidContent(incoming());
+      allow update: if isAdmin() || (isSignedIn() && isUnblocked() && (
+        (existing().creatorId == request.auth.uid && isValidContent(incoming())) ||
+        (incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'commentCount']))
+      ));
+      allow delete: if isAdmin() || (isSignedIn() && existing().creatorId == request.auth.uid);
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && isUnblocked() && isValidComment(incoming());
+        allow update: if isAdmin() || (isSignedIn() && isUnblocked() && (
+          (existing().creatorId == request.auth.uid && isValidComment(incoming())) ||
+          (incoming().diff(existing()).affectedKeys().hasOnly(['replies']))
+        ));
+      }
     }
   }
 }

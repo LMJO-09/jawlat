@@ -94,13 +94,13 @@ export default function ExpressionsPage({ onNavigate }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8">
+    <div className="min-h-screen bg-[var(--bg-primary)] p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <button 
             onClick={() => onNavigate('dashboard')}
-            className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all font-bold"
+            className="flex items-center gap-2 text-slate-500 hover:text-[var(--accent-primary)] transition-all font-bold"
           >
             <ChevronLeft className="w-5 h-5 rtl:rotate-180" />
             <span>العودة للوحة التحكم</span>
@@ -108,13 +108,13 @@ export default function ExpressionsPage({ onNavigate }: Props) {
         </div>
 
         <div className="mb-10 text-center md:text-right">
-          <h1 className="text-4xl font-bold text-slate-800 dark:text-white mb-2 flex items-center justify-center md:justify-start gap-3">
+          <h1 className="text-4xl font-bold text-[var(--text-primary)] mb-2 flex items-center justify-center md:justify-start gap-3">
             <div className="w-12 h-12 bg-purple-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-purple-500/20">
                <Edit3 className="w-7 h-7" />
             </div>
             مساحة التعبير الحر
           </h1>
-          <p className="text-slate-500 dark:text-slate-400">شارك خواطرك وصورك مع الآخرين في مجتمع الجولات</p>
+          <p className="text-[var(--text-secondary)]">شارك خواطرك وصورك مع الآخرين في مجتمع الجولات</p>
         </div>
 
         {/* Create Post Area */}
@@ -134,7 +134,7 @@ export default function ExpressionsPage({ onNavigate }: Props) {
                    value={inputText}
                    onChange={e => setInputText(e.target.value)}
                    placeholder="بماذا تفكر الآن؟ شارك شيئاً ملهماً..."
-                   className="flex-1 bg-transparent border-none focus:ring-0 outline-none text-lg resize-none dark:text-white pt-2"
+                   className="flex-1 bg-transparent border-none focus:ring-0 outline-none text-lg resize-none text-[var(--text-primary)] pt-2"
                  />
               </div>
 
@@ -214,7 +214,7 @@ export default function ExpressionsPage({ onNavigate }: Props) {
                              )}
                           </div>
                           <div>
-                             <h3 className="font-bold text-slate-800 dark:text-white leading-none">{entry.creatorName}</h3>
+                             <h3 className="font-bold text-[var(--text-primary)] leading-none">{entry.creatorName}</h3>
                              <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
                                 <Clock className="w-3 h-3" />
                                 {entry.timestamp?.toDate()?.toLocaleString('ar-EG')}
@@ -232,7 +232,7 @@ export default function ExpressionsPage({ onNavigate }: Props) {
                     </div>
 
                     {entry.content && (
-                      <p className="text-slate-800 dark:text-slate-200 text-lg leading-relaxed whitespace-pre-wrap mb-6">
+                      <p className="text-[var(--text-primary)] text-lg leading-relaxed whitespace-pre-wrap mb-6">
                         {entry.content}
                       </p>
                     )}

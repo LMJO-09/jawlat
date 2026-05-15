@@ -36,8 +36,20 @@ export default function AuthPage({ onNavigate }: Props) {
       }
       onNavigate('dashboard');
     } catch (err: any) {
-      setError('خطأ في البريد الإلكتروني أو كلمة المرور');
       console.error(err);
+      if (err.code === 'auth/user-not-found') {
+        setError('هذا الحساب غير موجود، يرجى إنشاء حساب جديد');
+      } else if (err.code === 'auth/wrong-password') {
+        setError('كلمة المرور غير صحيحة');
+      } else if (err.code === 'auth/email-already-in-use') {
+        setError('هذا البريد الإلكتروني مستخدم بالفعل');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('البريد الإلكتروني غير صالح');
+      } else if (err.code === 'auth/weak-password') {
+        setError('كلمة المرور ضعيفة جداً (يجب أن تكون 6 أحرف على الأقل)');
+      } else {
+        setError('حدث خطأ أثناء محاولة تسجيل الدخول، يرجى المحاولة لاحقاً');
+      }
     } finally {
       setLoading(false);
     }
@@ -45,11 +57,19 @@ export default function AuthPage({ onNavigate }: Props) {
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
+    setError('');
     try {
       await signInWithPopup(auth, provider);
       onNavigate('dashboard');
-    } catch (err) {
-      setError('فشل تسجيل الدخول بواسطة جوجل');
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/popup-closed-by-user') {
+        setError('تم إغلاق نافذة تسجيل الدخول قبل إتمام العملية');
+      } else if (err.code === 'auth/blocked-at-interaction-limit') {
+        setError('تم حظر طلبات تسجيل الدخول مؤقتاً لكثرة المحاولات');
+      } else {
+        setError('فشل تسجيل الدخول بواسطة جوجل، تأكد من السماح بالنوافذ المنبثقة');
+      }
     }
   };
 
