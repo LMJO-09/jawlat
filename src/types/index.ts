@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'user';
+export type UserRole = 'admin' | 'moderator' | 'user';
 
 export interface UserProfile {
   uid: string;
@@ -7,8 +7,12 @@ export interface UserProfile {
   photoURL: string;
   role: UserRole;
   isBlocked: boolean;
+  timeoutUntil?: any;
+  timeoutReason?: string;
+  restrictedSections?: string[];
   restrictedActions: string[];
   hasFlame?: boolean;
+  generation?: '2008' | '2009' | '2010';
   createdAt: any;
   lastLogin?: any;
 }
@@ -31,13 +35,14 @@ export interface Message {
   senderId: string;
   senderName: string;
   senderPhoto: string;
-  senderRole: UserRole;
+  senderRole: string; // Keep as string for flexibility
+  senderGeneration?: string;
   timestamp: any;
 }
 
 export interface SupportTicket {
   id: string;
-  subject: string;
+  subject?: string;
   message: string;
   senderId: string;
   senderEmail: string;
@@ -55,6 +60,7 @@ export interface SharedContent {
   creatorId: string;
   creatorName: string;
   creatorPhoto?: string;
+  creatorGeneration?: string;
   timestamp: any;
   likes?: string[]; // IDs of users who liked
   expiresAt?: any; // For controlled duration
@@ -68,6 +74,7 @@ export interface Comment {
   creatorId: string;
   creatorName: string;
   creatorPhoto?: string;
+  creatorGeneration?: string;
   timestamp: any;
   replies?: Reply[];
 }
@@ -78,5 +85,17 @@ export interface Reply {
   creatorId: string;
   creatorName: string;
   creatorPhoto?: string;
+  creatorGeneration?: string;
   timestamp: any;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'like' | 'round_start' | 'round_end' | 'break_start' | 'break_end' | 'profile_update' | 'warning';
+  read: boolean;
+  timestamp: any;
+  link?: string;
 }

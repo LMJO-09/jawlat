@@ -73,6 +73,19 @@
     @apply text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.5)] animate-pulse;
   }
 
+  .animate-pulse-slow {
+    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+
   [dir="rtl"] {
     font-family: var(--font-arabic);
   }

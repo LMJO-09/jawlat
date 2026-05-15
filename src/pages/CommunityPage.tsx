@@ -38,16 +38,19 @@ import {
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { SharedContent, Comment, Reply } from '../types';
+import GenerationBadge from '../components/GenerationBadge';
 
 interface Props {
   onNavigate: (page: any) => void;
 }
 
 export default function CommunityPage({ onNavigate }: Props) {
-  const { user, profile, isAdmin } = useAuth();
+  const { user, profile, isAdmin, isTimedOut, restrictedSections } = useAuth();
   const [posts, setPosts] = useState<SharedContent[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
+  
+  const isSectionRestricted = isTimedOut && restrictedSections.includes('Community') && !isAdmin;
   
   // Media states
   const [images, setImages] = useState<string[]>([]);
@@ -91,6 +94,10 @@ export default function CommunityPage({ onNavigate }: Props) {
   }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video' | 'pdf') => {
+    if (isSectionRestricted) {
+      alert('أنت مقيد من النشر حالياً');
+      return;
+    }
     const files = e.target.files;
     if (!files) return;
 
@@ -115,6 +122,10 @@ export default function CommunityPage({ onNavigate }: Props) {
 
   const handleAddPost = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSectionRestricted) {
+      alert('أنت مقيد من النشر حالياً');
+      return;
+    }
     if (!user || !profile) return;
     if (!inputText.trim() && images.length === 0 && videos.length === 0 && pdfs.length === 0) return;
 
@@ -132,6 +143,7 @@ export default function CommunityPage({ onNavigate }: Props) {
         creatorId: user.uid,
         creatorName: profile.displayName,
         creatorPhoto: profile.photoURL,
+        creatorGeneration: profile.generation,
         timestamp: serverTimestamp(),
         likes: [],
         expiresAt: Timestamp.fromDate(expiresAt),
@@ -147,13 +159,26 @@ export default function CommunityPage({ onNavigate }: Props) {
   };
 
   const toggleLike = async (post: SharedContent) => {
-    if (!user) return;
+    if (!user || !profile) return;
     const isLiked = post.likes?.includes(user.uid);
     const postRef = doc(db, 'content', post.id);
     try {
       await updateDoc(postRef, {
         likes: isLiked ? arrayRemove(user.uid) : arrayUnion(user.uid)
       });
+
+      // Send notification if it's a new like and not the creator liking their own post
+      if (!isLiked && post.creatorId !== user.uid) {
+        await addDoc(collection(db, 'notifications'), {
+          userId: post.creatorId,
+          title: 'إعجاب جديد',
+          message: `لقد أعجب ${profile.displayName} بمنشورك`,
+          type: 'like',
+          read: false,
+          timestamp: serverTimestamp(),
+          link: 'community'
+        });
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `content/${post.id}`);
     }
@@ -166,6 +191,40 @@ export default function CommunityPage({ onNavigate }: Props) {
       } catch (err) {
         handleFirestoreError(err, OperationType.DELETE, `content/${id}`);
       }
+    }
+  };
+
+  const deleteComment = async (postId: string, commentId: string) => {
+    if (!confirm('هل تريد حذف هذا التعليق؟')) return;
+    try {
+      await deleteDoc(doc(db, 'content', postId, 'comments', commentId));
+      // Update count
+      const postRef = doc(db, 'content', postId);
+      const postSnap = await getDoc(postRef);
+      if (postSnap.exists()) {
+        await updateDoc(postRef, {
+          commentCount: Math.max(0, (postSnap.data()?.commentCount || 0) - 1)
+        });
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `content/${postId}/comments/${commentId}`);
+    }
+  };
+
+  const deleteReply = async (postId: string, commentId: string, replyId: string) => {
+    if (!confirm('هل تريد حذف هذا الرد؟')) return;
+    try {
+      const commentRef = doc(db, 'content', postId, 'comments', commentId);
+      const commentSnap = await getDoc(commentRef);
+      if (commentSnap.exists()) {
+        const replies = commentSnap.data()?.replies || [];
+        const updatedReplies = replies.filter((r: any) => r.id !== replyId);
+        await updateDoc(commentRef, {
+          replies: updatedReplies
+        });
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `content/${postId}/comments/${commentId}`);
     }
   };
 
@@ -186,6 +245,10 @@ export default function CommunityPage({ onNavigate }: Props) {
   }, [expandedComments]);
 
   const addComment = async (postId: string) => {
+    if (isSectionRestricted) {
+      alert('أنت مقيد من التعليق حالياً');
+      return;
+    }
     if (!commentInput.trim() || !user || !profile) return;
     try {
       await addDoc(collection(db, 'content', postId, 'comments'), {
@@ -194,6 +257,7 @@ export default function CommunityPage({ onNavigate }: Props) {
         creatorId: user.uid,
         creatorName: profile.displayName,
         creatorPhoto: profile.photoURL,
+        creatorGeneration: profile.generation,
         timestamp: serverTimestamp(),
         replies: []
       });
@@ -212,19 +276,24 @@ export default function CommunityPage({ onNavigate }: Props) {
   };
 
   const addReply = async (postId: string, commentId: string) => {
+    if (isSectionRestricted) {
+      alert('أنت مقيد من الرد حالياً');
+      return;
+    }
     if (!replyInput?.text.trim() || !user || !profile) return;
     try {
       const commentRef = doc(db, 'content', postId, 'comments', commentId);
-      const newReply: Reply = {
+      const newReplySnapshot = {
         id: Math.random().toString(36).substr(2, 9),
         content: replyInput.text,
         creatorId: user.uid,
         creatorName: profile.displayName,
         creatorPhoto: profile.photoURL,
+        creatorGeneration: profile.generation,
         timestamp: new Date()
       };
       await updateDoc(commentRef, {
-        replies: arrayUnion(newReply)
+        replies: arrayUnion(newReplySnapshot)
       });
       setReplyInput(null);
     } catch (err) {
@@ -396,6 +465,7 @@ export default function CommunityPage({ onNavigate }: Props) {
                           <div>
                              <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
                                {post.creatorName}
+                               <GenerationBadge generation={post.creatorGeneration} />
                                {isAdmin && <ShieldCheck className="w-3 h-3 text-indigo-500" />}
                              </h3>
                              <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
@@ -479,7 +549,10 @@ export default function CommunityPage({ onNavigate }: Props) {
                                        </div>
                                        <div className="flex-1">
                                           <div className="bg-[var(--card-bg)] border border-[var(--card-border)] p-4 rounded-2xl rounded-tr-none shadow-sm inline-block min-w-[200px]">
-                                             <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-1">{comment.creatorName}</p>
+                                             <div className="flex items-center gap-2 mb-1">
+                                               <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">{comment.creatorName}</p>
+                                               <GenerationBadge generation={comment.creatorGeneration} />
+                                             </div>
                                              <p className="text-[var(--text-primary)] text-sm font-medium">{comment.content}</p>
                                           </div>
                                           <div className="flex items-center gap-4 mt-2 px-1">
@@ -487,6 +560,12 @@ export default function CommunityPage({ onNavigate }: Props) {
                                                 <ReplyIcon className="w-3 h-3"/>
                                                 رد
                                              </button>
+                                             {(comment.creatorId === user?.uid || isAdmin) && (
+                                               <button onClick={() => deleteComment(post.id, comment.id)} className="text-[10px] font-bold text-slate-400 hover:text-red-500 uppercase tracking-widest flex items-center gap-1">
+                                                  <Trash2 className="w-3 h-3"/>
+                                                  حذف
+                                               </button>
+                                             )}
                                              <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{comment.timestamp?.toDate()?.toLocaleTimeString('ar-EG')}</span>
                                           </div>
                                           
@@ -496,9 +575,20 @@ export default function CommunityPage({ onNavigate }: Props) {
                                                 <div className="w-6 h-6 rounded-lg bg-slate-200 dark:bg-slate-700 overflow-hidden">
                                                    {reply.creatorPhoto ? <img src={reply.creatorPhoto} alt="" className="w-full h-full object-cover"/> : <UserIcon className="w-3 h-3 m-1.5 text-slate-400"/>}
                                                 </div>
-                                                <div className="bg-slate-100 dark:bg-slate-700 p-3 rounded-xl rounded-tr-none text-xs flex-1">
-                                                   <p className="font-bold text-indigo-500 mb-1">{reply.creatorName}</p>
+                                                <div className="bg-slate-100 dark:bg-slate-700 p-3 rounded-xl rounded-tr-none text-xs flex-1 relative group/reply">
+                                                   <div className="flex items-center gap-2 mb-1">
+                                                     <p className="font-bold text-indigo-500">{reply.creatorName}</p>
+                                                     <GenerationBadge generation={reply.creatorGeneration} />
+                                                   </div>
                                                    <p className="text-slate-700 dark:text-slate-200">{reply.content}</p>
+                                                   {(reply.creatorId === user?.uid || isAdmin) && (
+                                                      <button 
+                                                        onClick={() => deleteReply(post.id, comment.id, reply.id)}
+                                                        className="absolute top-2 left-2 opacity-0 group-hover/reply:opacity-100 p-1 text-slate-400 hover:text-red-500 transition-all"
+                                                      >
+                                                        <Trash2 className="w-3 h-3" />
+                                                      </button>
+                                                   )}
                                                 </div>
                                              </div>
                                           ))}

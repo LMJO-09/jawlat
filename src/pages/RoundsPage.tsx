@@ -22,11 +22,20 @@ interface Props {
 }
 
 export default function RoundsPage({ onNavigate, initialTab = 'active' }: Props) {
-  const { user } = useAuth();
+  const { user, isAdmin, isTimedOut, restrictedSections, profile } = useAuth();
   const [rounds, setRounds] = useState<Round[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>(initialTab);
+
+  const isSectionRestricted = isTimedOut && restrictedSections.includes('Rounds') && !isAdmin;
+
+  useEffect(() => {
+    if (isSectionRestricted) {
+      alert(`عذراً، هذا القسم مقيد لك حالياً بسبب: ${profile?.timeoutReason || 'مخالفة القوانين'}`);
+      onNavigate('dashboard');
+    }
+  }, [isSectionRestricted, onNavigate, profile]);
 
   // Form State
   const [name, setName] = useState('');
@@ -151,13 +160,20 @@ export default function RoundsPage({ onNavigate, initialTab = 'active' }: Props)
                            {round.duration}د جولة
                         </div>
                      </div>
-                     <button 
-                       onClick={() => onNavigate('round-room', { roundId: round.id })}
-                       className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gray-800 dark:hover:bg-gray-50 transition-all"
-                     >
-                        انضمام للجولة
-                        <ArrowRight className="w-4 h-4 rtl:rotate-180" />
-                     </button>
+                     {activeTab === 'active' && (
+                       <button 
+                         onClick={() => onNavigate('round-room', { roundId: round.id })}
+                         className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gray-800 dark:hover:bg-gray-50 transition-all"
+                       >
+                          انضمام للجولة
+                          <ArrowRight className="w-4 h-4 rtl:rotate-180" />
+                       </button>
+                     )}
+                     {activeTab === 'completed' && (
+                       <div className="w-full py-3 bg-slate-100 dark:bg-slate-700 text-slate-400 rounded-2xl font-bold flex items-center justify-center gap-2 cursor-default">
+                          الجولة منتهية
+                       </div>
+                     )}
                    </motion.div>
                  ))}
                </div>

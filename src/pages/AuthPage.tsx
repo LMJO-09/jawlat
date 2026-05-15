@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { LogIn, UserPlus, Mail, Lock, User, Github, Shield } from 'lucide-react';
-import { auth, db } from '../lib/firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -9,6 +9,7 @@ import {
   signInWithPopup,
   GoogleAuthProvider
 } from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 interface Props {
   onNavigate: (page: any) => void;
@@ -19,6 +20,7 @@ export default function AuthPage({ onNavigate }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [generation, setGeneration] = useState<'2008' | '2009' | '2010'>('2008');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -33,6 +35,22 @@ export default function AuthPage({ onNavigate }: Props) {
       } else {
         const { user } = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(user, { displayName: name });
+        
+        // Create profile manually with generation
+        const profileRef = doc(db, 'users', user.uid);
+        await setDoc(profileRef, {
+          uid: user.uid,
+          email: user.email,
+          displayName: name,
+          photoURL: '',
+          role: 'user',
+          isBlocked: false,
+          restrictedActions: [],
+          generation: generation,
+          hasFlame: false,
+          createdAt: serverTimestamp(),
+          lastLogin: serverTimestamp()
+        });
       }
       onNavigate('dashboard');
     } catch (err: any) {
@@ -111,6 +129,24 @@ export default function AuthPage({ onNavigate }: Props) {
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all outline-none"
                     placeholder="أحمد محمد"
                   />
+                </div>
+              </div>
+            )}
+
+            {!isLogin && (
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mr-1">اختر جيلك</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {(['2008', '2009', '2010'] as const).map((gen) => (
+                    <button
+                      key={gen}
+                      type="button"
+                      onClick={() => setGeneration(gen)}
+                      className={`py-3 rounded-xl border-2 font-bold transition-all ${generation === gen ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-600' : 'border-gray-100 dark:border-gray-700 text-gray-400'}`}
+                    >
+                      {gen}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}

@@ -27,6 +27,7 @@ import {
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Round, Message } from '../types';
+import GenerationBadge from '../components/GenerationBadge';
 
 interface Props {
   roundId: string;
@@ -34,15 +35,49 @@ interface Props {
 }
 
 export default function RoundRoom({ roundId, onNavigate }: Props) {
-  const { profile, user } = useAuth();
+  const { profile, user, isAdmin, isTimedOut, restrictedSections } = useAuth();
   const [round, setRound] = useState<Round | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
+  
+  const isSectionRestricted = isTimedOut && restrictedSections.includes('Chat') && !isAdmin;
   const [timeLeft, setTimeLeft] = useState(0);
   const [isBreak, setIsBreak] = useState(false);
   const [loading, setLoading] = useState(true);
+  const prevIsBreak = useRef(isBreak);
   
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isTimedOut && restrictedSections.includes('Rounds') && !isAdmin) {
+      alert('تم تقييد وصولك لقسم الجولات، سيتم توجيهك للرئيسية');
+      onNavigate('dashboard');
+    }
+  }, [isTimedOut, restrictedSections, isAdmin, onNavigate]);
+
+  useEffect(() => {
+    if (!round || round.status !== 'active' || !user) return;
+    
+    if (prevIsBreak.current !== isBreak) {
+      const sendBreakNotification = async () => {
+        try {
+          await addDoc(collection(db, 'notifications'), {
+            userId: user.uid,
+            title: isBreak ? 'وقت الراحة!' : 'بداية العمل!',
+            message: isBreak ? 'يمكنك الآن أخذ استراحة قصيرة والدردشة.' : 'انتهى وقت الراحة، لنعد للتركيز!',
+            type: isBreak ? 'break_start' : 'break_end',
+            read: false,
+            timestamp: serverTimestamp(),
+            link: `round/${roundId}`
+          });
+        } catch (err) {
+          console.error("Break notification error:", err);
+        }
+      };
+      sendBreakNotification();
+      prevIsBreak.current = isBreak;
+    }
+  }, [isBreak, round, user, roundId]);
 
   useEffect(() => {
     // Round Listener
@@ -86,7 +121,7 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
   useEffect(() => {
     if (!round || !round.startTime || round.status !== 'active') return;
 
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       const startTime = round.startTime.toDate().getTime();
       const now = new Date().getTime();
       const elapsedSeconds = Math.floor((now - startTime) / 1000);
@@ -100,6 +135,37 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
            updateDoc(doc(db, 'rounds', roundId), { status: 'completed' });
         }
         
+        // Notification
+        if (user) {
+          try {
+            // Audio Notification
+            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1.5);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 1.5);
+
+            await addDoc(collection(db, 'notifications'), {
+              userId: user.uid,
+              title: 'انتهت الجولة!',
+              message: `لقد انتهت جولة "${round.name}" بنجاح. عودة ميمونة!`,
+              type: 'round_end',
+              read: false,
+              timestamp: serverTimestamp(),
+              link: 'rounds'
+            });
+          } catch (err) {
+            console.error("Notification error:", err);
+          }
+        }
+
         // Show success alert and navigate
         if (!isBreak) { // Only if they were in a work session
            alert('رائع! لقد انتهت الجولة بنجاح. سيتم توجيهك إلى سجل الإنجازات.');
@@ -143,6 +209,10 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSectionRestricted) {
+      alert('أنت مقيد من الدردشة حالياً');
+      return;
+    }
     if (!inputText.trim() || !profile) return;
 
     try {
@@ -152,6 +222,7 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
         senderName: profile.displayName,
         senderPhoto: profile.photoURL,
         senderRole: profile.role,
+        senderGeneration: profile.generation,
         timestamp: serverTimestamp()
       });
       setInputText('');
@@ -305,6 +376,7 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
                     <span className={`text-[10px] font-bold ${isAdminMsg ? 'gold-text' : 'text-slate-400'} flex items-center gap-1 uppercase tracking-wider`}>
                        {isAdminMsg && <ShieldCheck className="w-3 h-3" />}
                        {msg.senderName}
+                        <GenerationBadge generation={msg.senderGeneration} />
                     </span>
                     {msg.senderRole === 'admin' && <Flame className="w-3 h-3 flame-icon" />}
                  </div>

@@ -17,7 +17,9 @@ import AdminPanel from './pages/AdminPanel';
 import ProfilePage from './pages/ProfilePage';
 import CommunityPage from './pages/CommunityPage';
 import BlockedPage from './pages/BlockedPage';
-import ThemeToggle from './components/ThemeToggle';
+import GenerationSetup from './pages/GenerationSetup';
+import ActiveRoundTimer from './components/ActiveRoundTimer';
+import WarningModal from './components/WarningModal';
 import { motion, AnimatePresence } from 'motion/react';
 
 type Page = 'landing' | 'auth' | 'dashboard' | 'rounds' | 'round-room' | 'expressions' | 'schedules' | 'admin' | 'profile' | 'community';
@@ -27,6 +29,17 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>('landing');
   const [activeRoundId, setActiveRoundId] = useState<string | null>(null);
   const [roundsTab, setRoundsTab] = useState<'active' | 'completed'>('active');
+
+  // Route protection
+  const navigate = (page: Page, params?: { roundId?: string, tab?: 'active' | 'completed' }) => {
+    if (page === 'round-room' && params?.roundId) {
+      setActiveRoundId(params.roundId);
+    }
+    if (page === 'rounds' && params?.tab) {
+      setRoundsTab(params.tab);
+    }
+    setCurrentPage(page);
+  };
 
   useEffect(() => {
     if (user && (currentPage === 'landing' || currentPage === 'auth')) {
@@ -44,26 +57,23 @@ function AppContent() {
     );
   }
 
-  // If user is blocked, force them to BlockedPage
-  if (user && profile?.isBlocked) {
+  // Mandatory Profile Setup
+  if (user && profile && !profile.generation) {
     return (
       <div dir="rtl" className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-500">
-        <ThemeToggle />
-        <BlockedPage />
+        <GenerationSetup />
       </div>
     );
   }
 
-  // Route protection
-  const navigate = (page: Page, params?: { roundId?: string, tab?: 'active' | 'completed' }) => {
-    if (page === 'round-room' && params?.roundId) {
-      setActiveRoundId(params.roundId);
-    }
-    if (page === 'rounds' && params?.tab) {
-      setRoundsTab(params.tab);
-    }
-    setCurrentPage(page);
-  };
+  if (user && profile?.isBlocked) {
+    return (
+      <div dir="rtl" className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-500">
+        <ActiveRoundTimer onNavigate={navigate} />
+        <BlockedPage />
+      </div>
+    );
+  }
 
   const renderPage = () => {
     if (!user && currentPage !== 'landing' && currentPage !== 'auth') {
@@ -87,7 +97,8 @@ function AppContent() {
 
   return (
     <div dir="rtl" className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-500">
-      <ThemeToggle />
+      <ActiveRoundTimer onNavigate={navigate} />
+      <WarningModal />
       <AnimatePresence mode="wait">
         <motion.div
           key={currentPage}

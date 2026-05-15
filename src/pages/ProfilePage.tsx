@@ -9,10 +9,15 @@ import {
   Flame,
   Shield,
   Save,
-  ShieldCheck
+  ShieldCheck,
+  Moon,
+  Sun,
+  Palette,
+  GraduationCap
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { doc, updateDoc } from 'firebase/firestore';
+import { useTheme } from '../hooks/useTheme';
+import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 
 interface Props {
@@ -21,6 +26,7 @@ interface Props {
 
 export default function ProfilePage({ onNavigate }: Props) {
   const { profile, isAdmin } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [name, setName] = useState(profile?.displayName || '');
   const [photoURL, setPhotoURL] = useState(profile?.photoURL || '');
   const [loading, setLoading] = useState(false);
@@ -47,6 +53,18 @@ export default function ProfilePage({ onNavigate }: Props) {
           await updateDoc(doc(db, 'users', profile.uid), {
             photoURL: result
           });
+
+          // Notification
+          await addDoc(collection(db, 'notifications'), {
+            userId: profile.uid,
+            title: 'تم تغيير صورتك',
+            message: 'لقد قمت بتغيير صورتك الشخصية بنجاح',
+            type: 'profile_update',
+            read: false,
+            timestamp: serverTimestamp(),
+            link: 'profile'
+          });
+
           setSuccess(true);
           setTimeout(() => setSuccess(false), 3000);
         } catch (err) {
@@ -140,6 +158,16 @@ export default function ProfilePage({ onNavigate }: Props) {
                      <p className="font-bold text-[var(--text-primary)]">{profile?.hasFlame ? 'نشط جداً' : 'مبتدئ'}</p>
                   </div>
                </div>
+
+               <div className="p-4 bg-[var(--card-bg)] rounded-2xl border border-[var(--card-border)] shadow-sm flex items-center gap-4">
+                  <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600">
+                     <GraduationCap className="w-5 h-5" />
+                  </div>
+                  <div>
+                     <p className="text-xs text-slate-400 font-bold uppercase">الجيل</p>
+                     <p className="font-bold text-[var(--text-primary)]">جيل {profile?.generation}</p>
+                  </div>
+               </div>
             </div>
           </div>
 
@@ -183,6 +211,36 @@ export default function ProfilePage({ onNavigate }: Props) {
                   placeholder="ضع رابط الصورة هنا..."
                   className="w-full px-6 py-4 rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] shadow-sm outline-none focus:ring-2 focus:ring-[var(--accent-primary)] text-[var(--text-primary)]"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-[var(--text-primary)] mr-2">مظهر التطبيق (الثيم)</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                   {[
+                     { id: 'light', name: 'صباحي', icon: Sun, color: 'text-orange-500 bg-orange-50 dark:bg-orange-900/20' },
+                     { id: 'dark', name: 'ليلي', icon: Moon, color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' },
+                     { id: 'nature', name: 'طبيعي', icon: Palette, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' },
+                     { id: 'royal', name: 'ملكي', icon: Shield, color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/20' }
+                   ].map((t) => (
+                     <button
+                       key={t.id}
+                       type="button"
+                       onClick={() => setTheme(t.id as any)}
+                       className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
+                         theme === t.id 
+                           ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)]/5 scale-105' 
+                           : 'border-[var(--card-border)] bg-[var(--card-bg)] hover:border-slate-300'
+                       }`}
+                     >
+                        <div className={`p-3 rounded-xl mb-2 ${t.color}`}>
+                           <t.icon className="w-6 h-6" />
+                        </div>
+                        <span className={`text-sm font-bold ${theme === t.id ? 'text-[var(--accent-primary)]' : 'text-[var(--text-secondary)]'}`}>
+                           {t.name}
+                        </span>
+                     </button>
+                   ))}
+                </div>
               </div>
 
               <div className="pt-6">

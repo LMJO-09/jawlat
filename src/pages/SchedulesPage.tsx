@@ -26,15 +26,22 @@ interface Props {
 }
 
 export default function SchedulesPage({ onNavigate }: Props) {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const [entries, setEntries] = useState<any[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [config, setConfig] = useState<any>({ schedulesEnabled: true, schedulesMessage: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const scheduleRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const unsubscribeConfig = onSnapshot(doc(db, 'app', 'config'), (snapshot) => {
+      if (snapshot.exists()) {
+        setConfig(snapshot.data());
+      }
+    });
+
     if (!user) return;
     const q = query(
       collection(db, 'content'),
@@ -46,7 +53,10 @@ export default function SchedulesPage({ onNavigate }: Props) {
       setEntries(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubscribeConfig();
+    };
   }, [user]);
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -151,52 +161,64 @@ export default function SchedulesPage({ onNavigate }: Props) {
           <p className="text-[var(--text-secondary)]">خطط ليومك وبادر بإنجاز مهامك في جولات التركيز</p>
         </div>
 
-        {/* Create Task */}
-        <form onSubmit={handleAdd} className="flex gap-4 mb-12">
-           <input 
-             type="text"
-             value={inputText}
-             onChange={e => setInputText(e.target.value)}
-             placeholder="ما هي مهمتك القادمة؟"
-             className="flex-1 px-6 py-4 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl focus:ring-2 focus:ring-green-500 outline-none text-lg text-[var(--text-primary)] shadow-sm font-bold"
-           />
-           <button 
-             type="submit"
-             disabled={!inputText.trim()}
-             className="w-16 h-16 bg-green-600 text-white rounded-2xl flex items-center justify-center hover:bg-green-700 disabled:opacity-50 shadow-lg shadow-green-500/20 transition-all"
-           >
-              <Plus className="w-8 h-8" />
-           </button>
-        </form>
-
-        {/* Entries List Area (Target for export) */}
-        <div ref={scheduleRef} className="bg-transparent space-y-4">
-           {loading ? (
-             <div className="flex justify-center p-12">
-               <div className="h-10 w-10 animate-spin rounded-full border-4 border-green-500 border-t-transparent"></div>
+        {(!config.schedulesEnabled && !isAdmin) ? (
+          <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 p-12 rounded-[3rem] text-center mb-12">
+             <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <Clock className="w-10 h-10 text-blue-600" />
              </div>
-           ) : entries.length > 0 ? (
-             <AnimatePresence>
-               {entries.map((entry) => (
-                 <motion.div 
-                   key={entry.id}
-                   layout
-                   initial={{ opacity: 0, x: 20 }}
-                   animate={{ opacity: 1, x: 0 }}
-                   className={`bento-card px-6 py-5 flex items-center justify-between group ${entry.completed ? 'opacity-60 grayscale-[0.5]' : ''}`}
-                 >
-                   <div className="flex items-center gap-4 flex-1">
-                      <button 
-                        onClick={() => toggleComplete(entry.id, entry.completed)}
-                        className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
-                          entry.completed ? 'bg-green-500 border-green-500 text-white' : 'border-slate-200 dark:border-slate-700 hover:border-green-500'
-                        }`}
-                      >
-                         {entry.completed && <CheckCircle2 className="w-5 h-5" />}
-                      </button>
-                      
-                      <div className="flex-1">
-                        {editingId === entry.id ? (
+             <h3 className="text-2xl font-bold text-blue-800 dark:text-blue-400 mb-2">جدول المهام متوقف مؤقتاً</h3>
+             <p className="text-blue-600 dark:text-purple-300 font-medium">
+               {config.schedulesMessage || 'هذا القسم مغلق حالياً، نعتذر عن الإزعاج.'}
+             </p>
+          </div>
+        ) : (
+          <>
+            {/* Create Task */}
+            <form onSubmit={handleAdd} className="flex gap-4 mb-12">
+               <input 
+                 type="text"
+                 value={inputText}
+                 onChange={e => setInputText(e.target.value)}
+                 placeholder="ما هي مهمتك القادمة؟"
+                 className="flex-1 px-6 py-4 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl focus:ring-2 focus:ring-green-500 outline-none text-lg text-[var(--text-primary)] shadow-sm font-bold"
+               />
+               <button 
+                 type="submit"
+                 disabled={!inputText.trim()}
+                 className="w-16 h-16 bg-green-600 text-white rounded-2xl flex items-center justify-center hover:bg-green-700 disabled:opacity-50 shadow-lg shadow-green-500/20 transition-all"
+               >
+                  <Plus className="w-8 h-8" />
+               </button>
+            </form>
+
+            {/* Entries List Area (Target for export) */}
+            <div ref={scheduleRef} className="bg-transparent space-y-4">
+               {loading ? (
+                 <div className="flex justify-center p-12">
+                   <div className="h-10 w-10 animate-spin rounded-full border-4 border-green-500 border-t-transparent"></div>
+                 </div>
+               ) : entries.length > 0 ? (
+                 <AnimatePresence>
+                   {entries.map((entry) => (
+                     <motion.div 
+                       key={entry.id}
+                       layout
+                       initial={{ opacity: 0, x: 20 }}
+                       animate={{ opacity: 1, x: 0 }}
+                       className={`bento-card px-6 py-5 flex items-center justify-between group ${entry.completed ? 'opacity-60 grayscale-[0.5]' : ''}`}
+                     >
+                       <div className="flex items-center gap-4 flex-1">
+                          <button 
+                            onClick={() => toggleComplete(entry.id, entry.completed)}
+                            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
+                              entry.completed ? 'bg-green-500 border-green-500 text-white' : 'border-slate-200 dark:border-slate-700 hover:border-green-500'
+                            }`}
+                          >
+                             {entry.completed && <CheckCircle2 className="w-5 h-5" />}
+                          </button>
+                          
+                          <div className="flex-1">
+                            {editingId === entry.id ? (
                            <div className="flex gap-2">
                               <input 
                                 type="text"
@@ -220,37 +242,39 @@ export default function SchedulesPage({ onNavigate }: Props) {
                              </div>
                            </>
                         )}
-                      </div>
-                   </div>
+                          </div>
+                       </div>
 
-                   <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {!entry.completed && editingId !== entry.id && (
-                        <button 
-                          onClick={() => startEdit(entry)}
-                          className="p-2 text-slate-400 hover:text-indigo-500 transition-all"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                      )}
-                      <button 
-                        onClick={() => deleteEntry(entry.id)}
-                        className="p-2 text-slate-400 hover:text-red-500 transition-all"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                   </div>
-                 </motion.div>
-               ))}
-             </AnimatePresence>
-           ) : (
-             <div className="text-center p-20 bg-slate-50/50 dark:bg-slate-900/20 rounded-[3rem] border border-dashed border-slate-200 dark:border-slate-800">
-                <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-3xl flex items-center justify-center mx-auto mb-6 text-slate-300">
-                   <ListTodo className="w-10 h-10" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-400">لا يوجد مهام في جدولك حالياً</h3>
-             </div>
-           )}
-        </div>
+                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {!entry.completed && editingId !== entry.id && (
+                            <button 
+                              onClick={() => startEdit(entry)}
+                              className="p-2 text-slate-400 hover:text-indigo-500 transition-all"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => deleteEntry(entry.id)}
+                            className="p-2 text-slate-400 hover:text-red-500 transition-all"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                       </div>
+                     </motion.div>
+                   ))}
+                 </AnimatePresence>
+               ) : (
+                 <div className="text-center p-20 bg-slate-50/50 dark:bg-slate-900/20 rounded-[3rem] border border-dashed border-slate-200 dark:border-slate-800">
+                    <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-3xl flex items-center justify-center mx-auto mb-6 text-slate-300">
+                       <ListTodo className="w-10 h-10" />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-400">لا يوجد مهام في جدولك حالياً</h3>
+                 </div>
+               )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

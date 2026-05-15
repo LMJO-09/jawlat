@@ -9,10 +9,14 @@
         "email": { "type": "string", "format": "email" },
         "displayName": { "type": "string" },
         "photoURL": { "type": "string" },
-        "role": { "type": "string", "enum": ["admin", "user"] },
+        "role": { "type": "string", "enum": ["admin", "moderator", "user"] },
         "isBlocked": { "type": "boolean" },
+        "timeoutUntil": { "type": "string", "format": "date-time" },
+        "timeoutReason": { "type": "string" },
+        "restrictedSections": { "type": "array", "items": { "type": "string" } },
         "restrictedActions": { "type": "array", "items": { "type": "string" } },
         "hasFlame": { "type": "boolean" },
+        "generation": { "type": "string", "enum": ["2008", "2009", "2010"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "email", "role"]
@@ -94,6 +98,21 @@
         "timestamp": { "type": "string", "format": "date-time" },
         "replies": { "type": "array", "items": { "$ref": "Reply" } }
       }
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "In-app notifications for users.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["like", "round_start", "round_end", "break_start", "break_end", "profile_update", "warning"] },
+        "read": { "type": "boolean" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "link": { "type": "string" }
+      },
+      "required": ["userId", "title", "message", "type", "read", "timestamp"]
     }
   },
   "firestore": {
@@ -113,6 +132,10 @@
       "schema": "SupportTicket",
       "description": "User support tickets."
     },
+    "/support/{ticketId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Conversation messages for a support ticket."
+    },
     "/content/{contentId}": {
       "schema": "SharedContent",
       "description": "Schedules, expressions, and community posts."
@@ -120,6 +143,10 @@
     "/content/{contentId}/comments/{commentId}": {
       "schema": "Comment",
       "description": "Comments on community posts."
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications."
     }
   }
 }

@@ -9,6 +9,10 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   isAdmin: boolean;
+  isModerator: boolean;
+  isSuperAdmin: boolean;
+  isTimedOut: boolean;
+  restrictedSections: string[];
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -16,6 +20,10 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   isAdmin: false,
+  isModerator: false,
+  isSuperAdmin: false,
+  isTimedOut: false,
+  restrictedSections: [],
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -23,7 +31,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const ADMIN_EMAILS = ['abdalrhmanmaaith1@gmail.com'];
+  const ADMIN_EMAILS = ['abdalrhmanmaaith1@gmail.com', 'abdalrhmanmaaith24@gmail.com'];
+  const SUPER_ADMIN_EMAIL = 'abdalrhmanmaaith24@gmail.com';
 
   // Connection test & Persistence
   useEffect(() => {
@@ -57,9 +66,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               role: (firebaseUser.email && ADMIN_EMAILS.includes(firebaseUser.email)) ? 'admin' : 'user',
               isBlocked: false,
               restrictedActions: [],
+              restrictedSections: [],
               hasFlame: false,
-              createdAt: new Date(),
-              lastLogin: new Date(),
+              generation: undefined,
+              createdAt: serverTimestamp(),
+              lastLogin: serverTimestamp(),
             };
             try {
               await setDoc(profileRef, newProfile);
@@ -87,9 +98,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const isAdmin = profile?.role === 'admin' || (user?.email ? ADMIN_EMAILS.includes(user.email) : false);
+  const isModerator = isAdmin || profile?.role === 'moderator';
+  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
+  
+  const restrictedSections = profile?.restrictedSections || [];
+  const isTimedOut = !!(profile?.timeoutUntil && (
+    profile.timeoutUntil?.toDate ? profile.timeoutUntil.toDate() > new Date() : new Date(profile.timeoutUntil) > new Date()
+  ));
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin, isModerator, isSuperAdmin, isTimedOut, restrictedSections }}>
       {children}
     </AuthContext.Provider>
   );

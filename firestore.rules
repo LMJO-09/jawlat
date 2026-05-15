@@ -14,12 +14,27 @@ service cloud.firestore {
       allow read: if isSignedIn();
     }
 
+    function isSuperAdmin(email) {
+      return email == 'abdalrhmanmaaith24@gmail.com';
+    }
+
     function isAdmin() { 
       return isSignedIn() && (
-        request.auth.token.email == 'abdalrhmanmaaith24@gmail.com' ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin')
+        request.auth.token.email == 'abdalrhmanmaaith1@gmail.com' ||
+        isSuperAdmin(request.auth.token.email) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') in ['admin', 'moderator'])
       );
     }
+
+    function isModerator() {
+      return isSignedIn() && (
+        isAdmin() || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'moderator')
+      );
+    }
+
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
     function incoming() { return request.resource.data; }
@@ -30,7 +45,13 @@ service cloud.firestore {
     }
     
     function isUnblocked() {
-      return isSignedIn() && (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) || getUser(request.auth.uid).get('isBlocked', false) == false);
+      if (!isSignedIn()) { return false; }
+      let user = getUser(request.auth.uid);
+      let isBlocked = user.get('isBlocked', false);
+      let timeoutUntil = user.get('timeoutUntil', null);
+      let isTimedOut = timeoutUntil != null && (timeoutUntil is timestamp ? timeoutUntil > request.time : false); // Handle both string and timestamp safely or just trust one
+      
+      return !isBlocked && !isTimedOut;
     }
 
     // --- Validation Blueprints ---
@@ -40,13 +61,18 @@ service cloud.firestore {
       return data.keys().hasAll(requiredFields) &&
              data.uid == request.auth.uid &&
              data.email is string && data.email.size() <= 256 &&
-             data.role in ['admin', 'user'] &&
+             data.role in ['admin', 'moderator', 'user'] &&
              data.isBlocked is bool &&
              data.restrictedActions is list &&
              data.hasFlame is bool &&
+             (!data.keys().contains('generation') || data.generation in ['2008', '2009', '2010']) &&
              (data.createdAt is timestamp || data.createdAt is string) &&
              (!data.keys().contains('displayName') || (data.displayName is string && data.displayName.size() <= 128)) &&
-             (!data.keys().contains('photoURL') || (data.photoURL is string && data.photoURL.size() <= 1024));
+             (!data.keys().contains('photoURL') || (data.photoURL is string && data.photoURL.size() <= 1024)) &&
+             (!data.keys().contains('timeoutUntil') || (data.timeoutUntil is timestamp || data.timeoutUntil == null)) &&
+             (!data.keys().contains('timeoutReason') || (data.timeoutReason is string || data.timeoutReason == null)) &&
+             (!data.keys().contains('lastLogin') || (data.lastLogin is timestamp || data.lastLogin is string)) &&
+             (!data.keys().contains('restrictedSections') || (data.restrictedSections is list || data.restrictedSections == null));
     }
 
     function isValidRound(data) {
@@ -101,6 +127,17 @@ service cloud.firestore {
              (data.timestamp == request.time || data.timestamp is timestamp);
     }
 
+    function isValidNotification(data) {
+      let requiredFields = ['userId', 'title', 'message', 'type', 'read', 'timestamp'];
+      return data.keys().hasAll(requiredFields) &&
+             data.userId is string &&
+             data.title is string && data.title.size() <= 256 &&
+             data.message is string && data.message.size() <= 1024 &&
+             data.type in ['like', 'round_start', 'round_end', 'break_start', 'break_end', 'profile_update'] &&
+             data.read is bool &&
+             (data.timestamp == request.time || data.timestamp is timestamp);
+    }
+
     // --- Collection Routes ---
 
     match /app/config {
@@ -109,54 +146,67 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow create: if isOwner(userId) && isValidUser(incoming()) && (incoming().role == 'user' || request.auth.token.email == 'abdalrhmanmaaith24@gmail.com');
-      allow update: if isAdmin() || (isOwner(userId) && 
-        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'hasFlame']) && 
+      allow read: if isSignedIn() && (isOwner(userId) || isModerator());
+      allow create: if isOwner(userId) && isValidUser(incoming()) && (incoming().role == 'user' || request.auth.token.email in ['abdalrhmanmaaith1@gmail.com', 'abdalrhmanmaaith24@gmail.com']);
+      allow update: if (isModerator() && !isSuperAdmin(existing().email)) || (isOwner(userId) && 
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'hasFlame', 'generation', 'lastLogin']) && 
         isValidUser(incoming())
       );
     }
 
     match /rounds/{roundId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isUnblocked() && isValidRound(incoming());
-      allow update: if isSignedIn() && isUnblocked() && (
-        isAdmin() ||
-        (existing().creatorId == request.auth.uid && isValidRound(incoming()) && (
+      allow create: if isUnblocked() && isValidRound(incoming());
+      allow update: if isSignedIn() && (
+        isModerator() ||
+        (isUnblocked() && existing().creatorId == request.auth.uid && isValidRound(incoming()) && (
           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'participants', 'name', 'duration', 'breakAfter', 'breakDuration'])
         )) ||
-        (incoming().diff(existing()).affectedKeys().hasOnly(['participants']) && incoming().participants.size() >= existing().participants.size())
+        (isUnblocked() && incoming().diff(existing()).affectedKeys().hasOnly(['participants']) && incoming().participants.size() >= existing().participants.size())
       );
 
       match /messages/{messageId} {
         allow read: if isSignedIn();
-        allow create: if isSignedIn() && isUnblocked() && isValidMessage(incoming());
+        allow create: if isUnblocked() && isValidMessage(incoming());
       }
     }
 
     match /support/{ticketId} {
-      allow read: if isAdmin() || (isSignedIn() && existing().senderId == request.auth.uid);
-      allow create: if isSignedIn() && isUnblocked() && isValidTicket(incoming());
-      allow update: if isAdmin();
+      allow read: if isModerator() || (isSignedIn() && existing().senderId == request.auth.uid);
+      allow create: if isSignedIn() && isValidTicket(incoming()); // Banned users CAN create support tickets
+      allow update: if isModerator();
+
+      match /messages/{messageId} {
+        allow read: if isModerator() || (isSignedIn() && get(/databases/$(database)/documents/support/$(ticketId)).data.senderId == request.auth.uid);
+        allow create: if isModerator() || (isSignedIn() && get(/databases/$(database)/documents/support/$(ticketId)).data.senderId == request.auth.uid && isValidMessage(incoming()));
+      }
     }
 
     match /content/{contentId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isUnblocked() && isValidContent(incoming());
-      allow update: if isAdmin() || (isSignedIn() && isUnblocked() && (
+      allow create: if isUnblocked() && isValidContent(incoming());
+      allow update: if isModerator() || (isSignedIn() && isUnblocked() && (
         (existing().creatorId == request.auth.uid && isValidContent(incoming())) ||
         (incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'commentCount']))
       ));
-      allow delete: if isAdmin() || (isSignedIn() && existing().creatorId == request.auth.uid);
+      allow delete: if isModerator() || (isSignedIn() && existing().creatorId == request.auth.uid);
 
       match /comments/{commentId} {
         allow read: if isSignedIn();
-        allow create: if isSignedIn() && isUnblocked() && isValidComment(incoming());
-        allow update: if isAdmin() || (isSignedIn() && isUnblocked() && (
+        allow create: if isUnblocked() && isValidComment(incoming());
+        allow update: if isModerator() || (isSignedIn() && isUnblocked() && (
           (existing().creatorId == request.auth.uid && isValidComment(incoming())) ||
           (incoming().diff(existing()).affectedKeys().hasOnly(['replies']))
         ));
       }
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isModerator() || (isSignedIn() && isUnblocked() && isValidNotification(incoming()));
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }
 }
