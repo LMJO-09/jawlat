@@ -58,7 +58,7 @@ service cloud.firestore {
 
     function isValidUser(data) {
       return data.uid == request.auth.uid &&
-             data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) &&
+             data.keys().hasAll(['uid', 'email', 'role']) &&
              data.email is string &&
              data.role in ['admin', 'moderator', 'user'];
     }
