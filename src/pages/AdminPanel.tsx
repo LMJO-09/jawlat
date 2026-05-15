@@ -14,7 +14,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { collection, onSnapshot, query, updateDoc, doc, getDocs, setDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { UserProfile, SupportTicket } from '../types';
 
 interface Props {
@@ -54,13 +54,21 @@ export default function AdminPanel({ onNavigate }: Props) {
   }, []);
 
   const updateConfig = async (updates: any) => {
-    await setDoc(doc(db, 'app', 'config'), updates, { merge: true });
+    try {
+      await setDoc(doc(db, 'app', 'config'), updates, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'app/config');
+    }
   };
 
   const toggleBlock = async (user: UserProfile) => {
-    await updateDoc(doc(db, 'users', user.uid), {
-      isBlocked: !user.isBlocked
-    });
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        isBlocked: !user.isBlocked
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
+    }
   };
 
   const toggleRestriction = async (user: UserProfile, action: string) => {
@@ -69,15 +77,23 @@ export default function AdminPanel({ onNavigate }: Props) {
       ? restrictions.filter(a => a !== action)
       : [...restrictions, action];
     
-    await updateDoc(doc(db, 'users', user.uid), {
-      restrictedActions: newRestrictions
-    });
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        restrictedActions: newRestrictions
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
+    }
   };
 
   const toggleAdmin = async (user: UserProfile) => {
-    await updateDoc(doc(db, 'users', user.uid), {
-      role: user.role === 'admin' ? 'user' : 'admin'
-    });
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        role: user.role === 'admin' ? 'user' : 'admin'
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
+    }
   };
 
   const filteredUsers = users.filter(u => 

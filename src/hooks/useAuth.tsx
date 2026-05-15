@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, getDocFromServer, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { UserProfile } from '../types';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface AuthContextType {
   user: User | null;
@@ -24,22 +23,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const ADMIN_EMAILS = ['abdalrhmanmaaith1@gmail.com'];
+
   // Connection test & Persistence
   useEffect(() => {
     const init = async () => {
       try {
         await setPersistence(auth, browserLocalPersistence);
-        await getDocFromServer(doc(db, 'test', 'connection'));
       } catch (error) {
-        if (error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration.");
-        } else {
-          try {
-            handleFirestoreError(error, OperationType.GET, 'test/connection');
-          } catch (e) {
-            // Re-throw or handle as needed
-          }
-        }
+        console.error("Auth init error:", error);
       }
     };
     init();
@@ -62,7 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email: firebaseUser.email || '',
               displayName: firebaseUser.displayName || 'User',
               photoURL: firebaseUser.photoURL || '',
-              role: (firebaseUser.email === 'abdalrhmanmaaith24@gmail.com') ? 'admin' : 'user',
+              role: (firebaseUser.email && ADMIN_EMAILS.includes(firebaseUser.email)) ? 'admin' : 'user',
               isBlocked: false,
               restrictedActions: [],
               hasFlame: false,
@@ -94,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribeAuth();
   }, []);
 
-  const isAdmin = profile?.role === 'admin' || user?.email === 'abdalrhmanmaaith24@gmail.com';
+  const isAdmin = profile?.role === 'admin' || (user?.email ? ADMIN_EMAILS.includes(user.email) : false);
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, isAdmin }}>

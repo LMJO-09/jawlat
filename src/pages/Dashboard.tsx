@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
-import { auth, db } from '../lib/firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
@@ -42,9 +42,9 @@ export default function Dashboard({ onNavigate }: Props) {
       });
       setSupportMsg('');
       setShowSupport(false);
-      alert('تم إرسال طلب الدعم بنجاح');
+      // alert('تم إرسال طلب الدعم بنجاح'); // Optional: replace with toast if needed
     } catch (err) {
-      console.error(err);
+      handleFirestoreError(err, OperationType.WRITE, 'support');
     }
   };
 

@@ -32,9 +32,10 @@ import {
   updateDoc, 
   arrayUnion, 
   arrayRemove,
-  Timestamp
+  Timestamp,
+  getDoc
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { SharedContent, Comment, Reply } from '../types';
 
@@ -105,6 +106,9 @@ export default function CommunityPage({ onNavigate }: Props) {
         if (type === 'video') setVideos(prev => [...prev, result]);
         if (type === 'pdf') setPdfs(prev => [...prev, result]);
       };
+      reader.onerror = (err) => {
+        console.error("File reading error:", err);
+      };
       reader.readAsDataURL(file);
     });
   };
@@ -138,7 +142,7 @@ export default function CommunityPage({ onNavigate }: Props) {
       setVideos([]);
       setPdfs([]);
     } catch (err) {
-      console.error(err);
+      handleFirestoreError(err, OperationType.WRITE, 'content');
     }
   };
 
@@ -146,14 +150,22 @@ export default function CommunityPage({ onNavigate }: Props) {
     if (!user) return;
     const isLiked = post.likes?.includes(user.uid);
     const postRef = doc(db, 'content', post.id);
-    await updateDoc(postRef, {
-      likes: isLiked ? arrayRemove(user.uid) : arrayUnion(user.uid)
-    });
+    try {
+      await updateDoc(postRef, {
+        likes: isLiked ? arrayRemove(user.uid) : arrayUnion(user.uid)
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `content/${post.id}`);
+    }
   };
 
   const deletePost = async (id: string) => {
     if (confirm('حذف هذا المنشور؟')) {
-      await deleteDoc(doc(db, 'content', id));
+      try {
+        await deleteDoc(doc(db, 'content', id));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `content/${id}`);
+      }
     }
   };
 
@@ -188,11 +200,14 @@ export default function CommunityPage({ onNavigate }: Props) {
       setCommentInput('');
       // Update count
       const postRef = doc(db, 'content', postId);
-      await updateDoc(postRef, {
-        commentCount: (posts.find(p => p.id === postId)?.commentCount || 0) + 1
-      });
+      const postSnap = await getDoc(postRef);
+      if (postSnap.exists()) {
+        await updateDoc(postRef, {
+          commentCount: (postSnap.data()?.commentCount || 0) + 1
+        });
+      }
     } catch (err) {
-      console.error(err);
+      handleFirestoreError(err, OperationType.WRITE, `content/${postId}/comments`);
     }
   };
 
@@ -213,7 +228,7 @@ export default function CommunityPage({ onNavigate }: Props) {
       });
       setReplyInput(null);
     } catch (err) {
-      console.error(err);
+      handleFirestoreError(err, OperationType.UPDATE, `content/${postId}/comments/${commentId}`);
     }
   };
 

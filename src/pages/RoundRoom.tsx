@@ -24,10 +24,9 @@ import {
   arrayUnion,
   getDoc
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Round, Message } from '../types';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface Props {
   roundId: string;

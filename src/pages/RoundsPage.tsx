@@ -12,10 +12,9 @@ import {
   Target
 } from 'lucide-react';
 import { collection, onSnapshot, addDoc, query, orderBy, serverTimestamp } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Round } from '../types';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface Props {
   onNavigate: (page: any, params?: any) => void;

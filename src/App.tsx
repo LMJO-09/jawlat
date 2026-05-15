@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ThemeProvider } from './hooks/useTheme';
 import LandingPage from './pages/LandingPage';
@@ -16,6 +16,7 @@ import SchedulesPage from './pages/SchedulesPage';
 import AdminPanel from './pages/AdminPanel';
 import ProfilePage from './pages/ProfilePage';
 import CommunityPage from './pages/CommunityPage';
+import BlockedPage from './pages/BlockedPage';
 import ThemeToggle from './components/ThemeToggle';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -27,10 +28,28 @@ function AppContent() {
   const [activeRoundId, setActiveRoundId] = useState<string | null>(null);
   const [roundsTab, setRoundsTab] = useState<'active' | 'completed'>('active');
 
+  useEffect(() => {
+    if (user && (currentPage === 'landing' || currentPage === 'auth')) {
+      setCurrentPage('dashboard');
+    } else if (!user && (currentPage !== 'landing' && currentPage !== 'auth')) {
+      setCurrentPage('landing');
+    }
+  }, [user, currentPage]);
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--bg-primary)]">
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-[var(--accent-primary)] border-t-transparent"></div>
+      </div>
+    );
+  }
+
+  // If user is blocked, force them to BlockedPage
+  if (user && profile?.isBlocked) {
+    return (
+      <div dir="rtl" className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-500">
+        <ThemeToggle />
+        <BlockedPage />
       </div>
     );
   }

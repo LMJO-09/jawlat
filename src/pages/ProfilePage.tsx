@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 
 interface Props {
   onNavigate: (page: any) => void;
@@ -49,8 +49,8 @@ export default function ProfilePage({ onNavigate }: Props) {
           });
           setSuccess(true);
           setTimeout(() => setSuccess(false), 3000);
-        } catch (e) {
-          console.error(e);
+        } catch (err) {
+          handleFirestoreError(err, OperationType.UPDATE, `users/${profile.uid}`);
         } finally {
           setLoading(false);
         }
@@ -71,8 +71,8 @@ export default function ProfilePage({ onNavigate }: Props) {
       });
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${profile.uid}`);
     } finally {
       setLoading(false);
     }
