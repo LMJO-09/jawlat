@@ -9,9 +9,10 @@ import {
   Users,
   Search,
   ChevronLeft,
-  Target
+  Target,
+  Trash2
 } from 'lucide-react';
-import { collection, onSnapshot, addDoc, query, orderBy, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, query, orderBy, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Round } from '../types';
@@ -56,6 +57,17 @@ export default function RoundsPage({ onNavigate, initialTab = 'active' }: Props)
   }, []);
 
   const filteredRounds = rounds.filter(r => r.status === activeTab);
+
+  const handleDelete = async (roundId: string) => {
+    if (!isAdmin) return;
+    if (confirm('هل أنت متأكد من حذف هذه الجولة؟')) {
+      try {
+        await deleteDoc(doc(db, 'rounds', roundId));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `rounds/${roundId}`);
+      }
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,6 +159,18 @@ export default function RoundsPage({ onNavigate, initialTab = 'active' }: Props)
                         <div className="flex items-center gap-1.5 text-sm font-bold text-gray-400">
                            <Users className="w-4 h-4" />
                            {round.participants?.length || 1}
+                           {isAdmin && (
+                             <button 
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 handleDelete(round.id);
+                               }}
+                               className="p-1 px-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all mr-2"
+                               title="حذف الجولة"
+                             >
+                                <Trash2 className="w-3.5 h-3.5" />
+                             </button>
+                           )}
                         </div>
                      </div>
                      <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">{round.name}</h3>

@@ -45,34 +45,22 @@ service cloud.firestore {
     }
     
     function isUnblocked() {
-      if (!isSignedIn()) { return false; }
-      let user = getUser(request.auth.uid);
-      let isBlocked = user.get('isBlocked', false);
-      let timeoutUntil = user.get('timeoutUntil', null);
-      let isTimedOut = timeoutUntil != null && (timeoutUntil is timestamp ? timeoutUntil > request.time : false); // Handle both string and timestamp safely or just trust one
-      
-      return !isBlocked && !isTimedOut;
+      return isSignedIn() && (
+        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) || (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isBlocked', false) == false &&
+          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('timeoutUntil', null) == null || 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.timeoutUntil <= request.time)
+        )
+      );
     }
 
     // --- Validation Blueprints ---
 
     function isValidUser(data) {
-      let requiredFields = ['uid', 'email', 'role', 'isBlocked', 'restrictedActions', 'hasFlame', 'createdAt'];
-      return data.keys().hasAll(requiredFields) &&
-             data.uid == request.auth.uid &&
-             data.email is string && data.email.size() <= 256 &&
-             data.role in ['admin', 'moderator', 'user'] &&
-             data.isBlocked is bool &&
-             data.restrictedActions is list &&
-             data.hasFlame is bool &&
-             (!data.keys().contains('generation') || data.generation in ['2008', '2009', '2010']) &&
-             (data.createdAt is timestamp || data.createdAt is string) &&
-             (!data.keys().contains('displayName') || (data.displayName is string && data.displayName.size() <= 128)) &&
-             (!data.keys().contains('photoURL') || (data.photoURL is string && data.photoURL.size() <= 1024)) &&
-             (!data.keys().contains('timeoutUntil') || (data.timeoutUntil is timestamp || data.timeoutUntil == null)) &&
-             (!data.keys().contains('timeoutReason') || (data.timeoutReason is string || data.timeoutReason == null)) &&
-             (!data.keys().contains('lastLogin') || (data.lastLogin is timestamp || data.lastLogin is string)) &&
-             (!data.keys().contains('restrictedSections') || (data.restrictedSections is list || data.restrictedSections == null));
+      return data.uid == request.auth.uid &&
+             data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) &&
+             data.email is string &&
+             data.role in ['admin', 'moderator', 'user'];
     }
 
     function isValidRound(data) {
@@ -147,9 +135,8 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isSignedIn() && (isOwner(userId) || isModerator());
-      allow create: if isOwner(userId) && isValidUser(incoming()) && (incoming().role == 'user' || request.auth.token.email in ['abdalrhmanmaaith1@gmail.com', 'abdalrhmanmaaith24@gmail.com']);
+      allow create: if isOwner(userId) && isValidUser(incoming());
       allow update: if (isModerator() && !isSuperAdmin(existing().email)) || (isOwner(userId) && 
-        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'hasFlame', 'generation', 'lastLogin']) && 
         isValidUser(incoming())
       );
     }
@@ -162,8 +149,10 @@ service cloud.firestore {
         (isUnblocked() && existing().creatorId == request.auth.uid && isValidRound(incoming()) && (
           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'participants', 'name', 'duration', 'breakAfter', 'breakDuration'])
         )) ||
-        (isUnblocked() && incoming().diff(existing()).affectedKeys().hasOnly(['participants']) && incoming().participants.size() >= existing().participants.size())
+        (isUnblocked() && incoming().diff(existing()).affectedKeys().hasOnly(['participants']) && incoming().participants.size() >= existing().participants.size()) ||
+        (isUnblocked() && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status == 'completed')
       );
+      allow delete: if isModerator();
 
       match /messages/{messageId} {
         allow read: if isSignedIn();

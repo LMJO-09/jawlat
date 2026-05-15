@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Clock, Coffee, Play } from 'lucide-react';
-import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, limit, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Round } from '../types';
@@ -50,6 +50,12 @@ export default function ActiveRoundTimer({ onNavigate }: Props) {
       if (elapsedSeconds >= totalSeconds) {
         clearInterval(interval);
         setTimeLeft(0);
+        
+        // Auto-complete if finished
+        if (activeRound.status === 'active') {
+          updateDoc(doc(db, 'rounds', activeRound.id), { status: 'completed' })
+            .catch(err => console.error("Auto-complete error:", err));
+        }
         return;
       }
 

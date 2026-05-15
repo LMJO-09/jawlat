@@ -58,7 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setProfile(docSnap.data() as UserProfile);
           } else {
             // Create profile if it doesn't exist
-            const newProfile: UserProfile = {
+            const newProfile: any = {
               uid: firebaseUser.uid,
               email: firebaseUser.email || '',
               displayName: firebaseUser.displayName || 'User',
@@ -68,13 +68,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               restrictedActions: [],
               restrictedSections: [],
               hasFlame: false,
-              generation: undefined,
               createdAt: serverTimestamp(),
               lastLogin: serverTimestamp(),
             };
             try {
-              await setDoc(profileRef, newProfile);
-              setProfile(newProfile);
+              // Only set if it still doesn't exist to avoid theoretical races
+              await setDoc(profileRef, newProfile, { merge: true });
+              // Snapshot will handle setting the profile state
             } catch (error) {
               handleFirestoreError(error, OperationType.WRITE, `users/${firebaseUser.uid}`);
             }

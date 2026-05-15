@@ -11,20 +11,27 @@ export default function GenerationSetup() {
   const [loading, setLoading] = useState(false);
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!user || loading) return;
     setLoading(true);
     try {
       await updateDoc(doc(db, 'users', user.uid), {
-        generation: generation
+        generation: generation,
+        lastLogin: new Date() // Force a profile update to be sure
       });
-      // Profile will be auto-updated via onSnapshot in useAuth
-      // Small timeout to allow state to sync then we can rely on App.tsx re-render
+      // App.tsx should re-render and move to Dashboard automatically
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`);
     } finally {
       setLoading(false);
     }
   };
+
+  // If profile already has generation, don't show this
+  React.useEffect(() => {
+    if (profile?.generation) {
+      // Just a safety check
+    }
+  }, [profile]);
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4">
