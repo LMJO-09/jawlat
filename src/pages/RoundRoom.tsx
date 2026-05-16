@@ -10,7 +10,8 @@ import {
   Flame,
   User as UserIcon,
   MessageSquare,
-  ShieldCheck
+  ShieldCheck,
+  Trash2
 } from 'lucide-react';
 import { 
   doc, 
@@ -22,7 +23,8 @@ import {
   serverTimestamp,
   updateDoc,
   arrayUnion,
-  getDoc
+  getDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
@@ -231,6 +233,15 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
     }
   };
 
+  const deleteMessage = async (messageId: string) => {
+    if (!confirm('هل تريد حذف هذه الرسالة؟')) return;
+    try {
+      await deleteDoc(doc(db, 'rounds', roundId, 'messages', messageId));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `rounds/${roundId}/messages/${messageId}`);
+    }
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -296,15 +307,6 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
               <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">فاصل العمل</div>
             </div>
           </div>
-
-          {(user?.uid === round.creatorId || profile?.role === 'admin') && round.status === 'active' && (
-            <button 
-              onClick={endRound}
-              className="mt-8 w-full py-4 bg-red-50 dark:bg-red-900/10 text-red-600 rounded-2xl font-bold hover:bg-red-100 transition-all border border-red-100 dark:border-red-900/30 text-sm"
-            >
-              إنهاء الجولة يدوياً
-            </button>
-          )}
         </div>
       </div>
 
@@ -380,11 +382,19 @@ export default function RoundRoom({ roundId, onNavigate }: Props) {
                     </span>
                     {msg.senderRole === 'admin' && <Flame className="w-3 h-3 flame-icon" />}
                  </div>
-                 <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm border ${
+                 <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm border relative group ${
                    isMe ? 'bg-indigo-600 border-indigo-500 text-white rounded-tr-none' : 
                    'bg-[var(--card-bg)] text-[var(--text-primary)] rounded-tl-none border-[var(--card-border)]'
                  }`}>
                     {msg.text}
+                    {isAdmin && (
+                      <button 
+                        onClick={() => deleteMessage(msg.id)}
+                        className={`absolute top-2 ${isMe ? 'left-2' : 'right-2'} opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 transition-all bg-[var(--card-bg)] rounded-lg shadow-sm`}
+                      >
+                         <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
                  </div>
               </div>
                </div>

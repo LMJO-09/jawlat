@@ -157,6 +157,7 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read: if isSignedIn();
         allow create: if isUnblocked() && isValidMessage(incoming());
+        allow delete: if isModerator();
       }
     }
 
@@ -168,6 +169,7 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read: if isModerator() || (isSignedIn() && get(/databases/$(database)/documents/support/$(ticketId)).data.senderId == request.auth.uid);
         allow create: if isModerator() || (isSignedIn() && get(/databases/$(database)/documents/support/$(ticketId)).data.senderId == request.auth.uid && isValidMessage(incoming()));
+        allow delete: if isModerator();
       }
     }
 
@@ -187,6 +189,7 @@ service cloud.firestore {
           (existing().creatorId == request.auth.uid && isValidComment(incoming())) ||
           (incoming().diff(existing()).affectedKeys().hasOnly(['replies']))
         ));
+        allow delete: if isModerator() || (isSignedIn() && existing().creatorId == request.auth.uid);
       }
     }
 

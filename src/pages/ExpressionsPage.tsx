@@ -243,7 +243,7 @@ export default function ExpressionsPage({ onNavigate }: Props) {
                                  </div>
                               </div>
                            </div>
-                           {isOwner && (
+                           {(isOwner || isAdmin) && (
                              <button 
                                onClick={() => deleteEntry(entry.id)}
                                className="p-2 text-slate-300 hover:text-red-500 transition-all"
