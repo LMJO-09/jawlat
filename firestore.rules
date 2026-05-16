@@ -9,6 +9,7 @@ service cloud.firestore {
 
     // --- Global Helpers ---
     function isSignedIn() { return request.auth != null; }
+    function isEmailVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
 
     match /test/connection {
       allow read: if isSignedIn();
@@ -19,20 +20,21 @@ service cloud.firestore {
     }
 
     function isAdmin() { 
-      return isSignedIn() && (
+      let isExplicitAdmin = isSignedIn() && (
         request.auth.token.email == 'abdalrhmanmaaith1@gmail.com' ||
-        isSuperAdmin(request.auth.token.email) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') in ['admin', 'moderator'])
+        isSuperAdmin(request.auth.token.email)
       );
+      let isDbAdmin = isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin';
+      return isExplicitAdmin || isDbAdmin;
     }
 
     function isModerator() {
-      return isSignedIn() && (
-        isAdmin() || 
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'moderator')
-      );
+      let isDbMod = isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'moderator';
+      return isAdmin() || isDbMod;
     }
 
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
@@ -45,13 +47,14 @@ service cloud.firestore {
     }
     
     function isUnblocked() {
-      return isSignedIn() && (
-        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) || (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isBlocked', false) == false &&
-          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('timeoutUntil', null) == null || 
-           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.timeoutUntil <= request.time)
-        )
+      let isExplicitUnblocked = isSignedIn() && (request.auth.token.email == 'abdalrhmanmaaith1@gmail.com' || isSuperAdmin(request.auth.token.email));
+      let userDocPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      let userData = exists(userDocPath) ? get(userDocPath).data : null;
+      let isDocUnblocked = userData == null || (
+        userData.get('isBlocked', false) == false &&
+        (userData.get('timeoutUntil', null) == null || userData.timeoutUntil <= request.time)
       );
+      return isSignedIn() && (isExplicitUnblocked || isDocUnblocked);
     }
 
     // --- Validation Blueprints ---
@@ -134,7 +137,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn() && (isOwner(userId) || isModerator());
+      allow read: if isSignedIn();
       allow create: if isOwner(userId) && isValidUser(incoming());
       allow update: if (isModerator() && !isSuperAdmin(existing().email)) || (isOwner(userId) && 
         isValidUser(incoming())

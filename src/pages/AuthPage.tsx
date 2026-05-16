@@ -90,10 +90,11 @@ export default function AuthPage({ onNavigate }: Props) {
       } else if (err.code === 'auth/popup-blocked') {
         setError('تأكد من السماح بالنوافذ المنبثقة في متصفحك أو استخدم تسجيل الدخول عبر البريد');
       } else if (err.code === 'auth/unauthorized-domain') {
-        setError(`هذا النطاق غير مسموح به في إعدادات فيربيز.
-        يرجى إضافة النطاقات التالية في قائمة Authorized Domains بمشروعك (console.firebase.google.com):
-        ${window.location.hostname}
-        ais-dev-dtcfij242s2yyiieyfbmdk-11972804211.europe-west2.run.app`);
+        setError(`خطأ (Authorized Domain): هذا النطاق غير مصرح به في فيربيز.
+        يرجى إضافة النطاقين التاليين في (Firebase Console -> Authentication -> Settings -> Authorized Domains):
+        1. ${window.location.hostname}
+        2. lmjo-09.github.io
+        (انسخهم وأضفهم هناك حتى يعمل تسجيل الدخول)`);
       } else {
         // Fallback or more descriptive error
         setError(`فشل تسجيل الدخول: ${err.message || 'تأكد من إعدادات فيربيز والسماح بالنوافذ المنبثقة'}`);

@@ -129,7 +129,9 @@ export default function ExpressionsPage({ onNavigate }: Props) {
   const deleteEntry = async (id: string) => {
     if (confirm('هل أنت متأكد من حذف هذا المنشور؟')) {
       try {
+        console.log("Attempting to delete entry:", id, "as Admin:", isAdmin);
         await deleteDoc(doc(db, 'content', id));
+        // Also cleanup comments subcollection if needed (Firestore doesn't auto-delete subcollections on client side)
       } catch (err: any) {
         console.error("Delete Entry Error:", err);
         setError(`فشل حذف المنشور: ${err.message || 'تأكد من صلاحيات المسؤول'}`);
@@ -163,6 +165,7 @@ export default function ExpressionsPage({ onNavigate }: Props) {
   const deleteComment = async (postId: string, commentId: string) => {
     if (!confirm('هل تريد حذف هذا التعليق؟')) return;
     try {
+      console.log("Attempting to delete comment:", commentId, "from post:", postId, "as Admin:", isAdmin);
       await deleteDoc(doc(db, 'content', postId, 'comments', commentId));
       const postRef = doc(db, 'content', postId);
       await updateDoc(postRef, {
@@ -170,7 +173,7 @@ export default function ExpressionsPage({ onNavigate }: Props) {
       });
     } catch (err: any) {
       console.error("Delete Comment Error:", err);
-      setError('فشل حذف التعليق.');
+      setError(`فشل حذف التعليق: ${err.message || 'تأكد من صلاحيات المسؤول'}`);
     }
   };
 
