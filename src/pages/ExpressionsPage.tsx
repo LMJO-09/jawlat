@@ -32,8 +32,13 @@ export default function ExpressionsPage({ onNavigate }: Props) {
   const [inputText, setInputText] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [config, setConfig] = useState<any>({ expressionsEnabled: true, expressionsMessage: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    console.log("ExpressionsPage Debug:", { uid: user?.uid, email: user?.email, isAdmin, role: profile?.role });
+  }, [user, isAdmin, profile]);
 
   const [expandedComments, setExpandedComments] = useState<string | null>(null);
   const [comments, setComments] = useState<any[]>([]);
@@ -123,7 +128,12 @@ export default function ExpressionsPage({ onNavigate }: Props) {
 
   const deleteEntry = async (id: string) => {
     if (confirm('هل أنت متأكد من حذف هذا المنشور؟')) {
-      await deleteDoc(doc(db, 'content', id));
+      try {
+        await deleteDoc(doc(db, 'content', id));
+      } catch (err: any) {
+        console.error("Delete Entry Error:", err);
+        setError(`فشل حذف المنشور: ${err.message || 'تأكد من صلاحيات المسؤول'}`);
+      }
     }
   };
 
@@ -144,8 +154,9 @@ export default function ExpressionsPage({ onNavigate }: Props) {
       await updateDoc(postRef, {
         commentCount: (entries.find(e => e.id === postId)?.commentCount || 0) + 1
       });
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("Add Comment Error:", err);
+      setError('فشل إضافة التعليق.');
     }
   };
 
@@ -157,8 +168,9 @@ export default function ExpressionsPage({ onNavigate }: Props) {
       await updateDoc(postRef, {
         commentCount: Math.max(0, (entries.find(e => e.id === postId)?.commentCount || 0) - 1)
       });
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("Delete Comment Error:", err);
+      setError('فشل حذف التعليق.');
     }
   };
 
@@ -184,6 +196,17 @@ export default function ExpressionsPage({ onNavigate }: Props) {
             مساحة التعبير الحر
           </h1>
           <p className="text-[var(--text-secondary)]">شارك خواطرك وصورك مع الآخرين في مجتمع الجولات</p>
+          
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 p-4 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-2xl text-sm font-bold flex justify-between items-center"
+            >
+              <span>{error}</span>
+              <button onClick={() => setError(null)}><X className="w-4 h-4"/></button>
+            </motion.div>
+          )}
         </div>
 
         {(!config.expressionsEnabled && !isAdmin) ? (
