@@ -76,18 +76,25 @@ export default function AuthPage({ onNavigate }: Props) {
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     setError('');
+    setLoading(true);
     try {
+      // Try popup first
       await signInWithPopup(auth, provider);
       onNavigate('dashboard');
     } catch (err: any) {
-      console.error(err);
+      console.error("Google Auth Error:", err);
       if (err.code === 'auth/popup-closed-by-user') {
         setError('تم إغلاق نافذة تسجيل الدخول قبل إتمام العملية');
       } else if (err.code === 'auth/blocked-at-interaction-limit') {
         setError('تم حظر طلبات تسجيل الدخول مؤقتاً لكثرة المحاولات');
+      } else if (err.code === 'auth/popup-blocked') {
+        setError('تأكد من السماح بالنوافذ المنبثقة في متصفحك أو استخدم تسجيل الدخول عبر البريد');
       } else {
-        setError('فشل تسجيل الدخول بواسطة جوجل، تأكد من السماح بالنوافذ المنبثقة');
+        // Fallback or more descriptive error
+        setError('فشل تسجيل الدخول بواسطة جوجل. تأكد من السماح بالنوافذ المنبثقة أو أضف الدومين لقائمة التصريح في فيربيز');
       }
+    } finally {
+      setLoading(false);
     }
   };
 

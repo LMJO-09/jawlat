@@ -11,9 +11,12 @@ import {
   Image as ImageIcon,
   X,
   User as UserIcon,
-  Globe
+  Globe,
+  MessageSquare,
+  Send,
+  Reply as ReplyIcon
 } from 'lucide-react';
-import { collection, onSnapshot, addDoc, query, where, orderBy, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, query, where, orderBy, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { SharedContent } from '../types';
@@ -31,6 +34,10 @@ export default function ExpressionsPage({ onNavigate }: Props) {
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<any>({ expressionsEnabled: true, expressionsMessage: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [expandedComments, setExpandedComments] = useState<string | null>(null);
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentInput, setCommentInput] = useState('');
 
   useEffect(() => {
     const unsubscribeConfig = onSnapshot(doc(db, 'app', 'config'), (snapshot) => {
@@ -54,6 +61,21 @@ export default function ExpressionsPage({ onNavigate }: Props) {
       unsubscribeConfig();
     };
   }, []);
+
+  useEffect(() => {
+    if (!expandedComments) {
+      setComments([]);
+      return;
+    }
+    const q = query(
+      collection(db, 'content', expandedComments, 'comments'),
+      orderBy('timestamp', 'asc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setComments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, [expandedComments]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -88,7 +110,9 @@ export default function ExpressionsPage({ onNavigate }: Props) {
         creatorId: user.uid,
         creatorName: profile.displayName,
         creatorPhoto: profile.photoURL,
-        timestamp: serverTimestamp()
+        timestamp: serverTimestamp(),
+        likes: [],
+        commentCount: 0
       });
       setInputText('');
       setImages([]);
@@ -100,6 +124,41 @@ export default function ExpressionsPage({ onNavigate }: Props) {
   const deleteEntry = async (id: string) => {
     if (confirm('هل أنت متأكد من حذف هذا المنشور؟')) {
       await deleteDoc(doc(db, 'content', id));
+    }
+  };
+
+  const addComment = async (postId: string) => {
+    if (!commentInput.trim() || !user || !profile) return;
+    try {
+      await addDoc(collection(db, 'content', postId, 'comments'), {
+        postId,
+        content: commentInput,
+        creatorId: user.uid,
+        creatorName: profile.displayName,
+        creatorPhoto: profile.photoURL,
+        timestamp: serverTimestamp(),
+        replies: []
+      });
+      setCommentInput('');
+      const postRef = doc(db, 'content', postId);
+      await updateDoc(postRef, {
+        commentCount: (entries.find(e => e.id === postId)?.commentCount || 0) + 1
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const deleteComment = async (postId: string, commentId: string) => {
+    if (!confirm('هل تريد حذف هذا التعليق؟')) return;
+    try {
+      await deleteDoc(doc(db, 'content', postId, 'comments', commentId));
+      const postRef = doc(db, 'content', postId);
+      await updateDoc(postRef, {
+        commentCount: Math.max(0, (entries.find(e => e.id === postId)?.commentCount || 0) - 1)
+      });
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -271,6 +330,69 @@ export default function ExpressionsPage({ onNavigate }: Props) {
                              ))}
                           </div>
                         )}
+
+                        <div className="flex items-center gap-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+                           <button 
+                             onClick={() => setExpandedComments(expandedComments === entry.id ? null : entry.id)}
+                             className={`flex items-center gap-2 font-bold text-sm transition-all ${expandedComments === entry.id ? 'text-purple-600' : 'text-slate-400 hover:text-purple-600'}`}
+                           >
+                              <MessageSquare className="w-5 h-5" />
+                              {entry.commentCount || 0}
+                           </button>
+                        </div>
+
+                        <AnimatePresence>
+                           {expandedComments === entry.id && (
+                             <motion.div 
+                               initial={{ height: 0, opacity: 0 }}
+                               animate={{ height: 'auto', opacity: 1 }}
+                               exit={{ height: 0, opacity: 0 }}
+                               className="overflow-hidden bg-slate-50 dark:bg-slate-900/50 -mx-6 mt-6 px-6 py-6 border-t border-slate-100 dark:border-slate-800"
+                             >
+                                <div className="space-y-6 mb-8">
+                                   {comments.map(comment => (
+                                     <div key={comment.id} className="flex gap-3">
+                                        <div className="w-8 h-8 rounded-xl bg-slate-200 dark:bg-slate-800 overflow-hidden flex-shrink-0">
+                                           {comment.creatorPhoto ? <img src={comment.creatorPhoto} alt="" className="w-full h-full object-cover"/> : <UserIcon className="w-4 h-4 m-2 text-slate-400"/>}
+                                        </div>
+                                        <div className="flex-1">
+                                           <div className="bg-[var(--card-bg)] border border-[var(--card-border)] p-4 rounded-2xl rounded-tr-none shadow-sm inline-block min-w-[200px]">
+                                              <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1">{comment.creatorName}</p>
+                                              <p className="text-[var(--text-primary)] text-sm font-medium">{comment.content}</p>
+                                           </div>
+                                           <div className="flex items-center gap-4 mt-2 px-1">
+                                              {(comment.creatorId === user?.uid || isAdmin) && (
+                                                <button onClick={() => deleteComment(entry.id, comment.id)} className="text-[10px] font-bold text-slate-400 hover:text-red-500 uppercase tracking-widest flex items-center gap-1">
+                                                   <Trash2 className="w-3 h-3"/>
+                                                   حذف
+                                                </button>
+                                              )}
+                                              <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{comment.timestamp?.toDate()?.toLocaleTimeString('ar-EG')}</span>
+                                           </div>
+                                        </div>
+                                     </div>
+                                   ))}
+                                </div>
+
+                                <div className="flex gap-4">
+                                   <input 
+                                     type="text" 
+                                     value={commentInput}
+                                     onChange={e => setCommentInput(e.target.value)}
+                                     placeholder="اكتب تعليقاً..."
+                                     onKeyDown={e => e.key === 'Enter' && addComment(entry.id)}
+                                     className="flex-1 bg-[var(--bg-primary)] border-none rounded-2xl px-6 py-3 text-[var(--text-primary)] font-bold text-sm shadow-sm"
+                                   />
+                                   <button 
+                                     onClick={() => addComment(entry.id)}
+                                     className="w-12 h-12 bg-purple-600 text-white rounded-2xl flex items-center justify-center hover:bg-purple-700 transition-all shadow-md"
+                                   >
+                                      <Send className="w-5 h-5 rtl:rotate-180" />
+                                   </button>
+                                </div>
+                             </motion.div>
+                           )}
+                        </AnimatePresence>
                      </motion.div>
                    );
                  })
